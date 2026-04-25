@@ -55,8 +55,7 @@ Do not put NetEase cookie in the renderer.
 ```dotenv
 COSIC_LLM_BASE_URL=https://testvideo.site/v1
 COSIC_LLM_API_KEY=your_key
-COSIC_LLM_MODEL=gpt-5.5
-COSIC_LLM_REASONING_EFFORT=xhigh
+COSIC_LLM_MODEL=gpt-5.4
 ```
 
 ## 4. NetEase bridge: what you should implement first

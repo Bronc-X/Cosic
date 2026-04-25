@@ -14,8 +14,7 @@ This file maps each bridge capability to a real configuration entry point in `.e
 ```dotenv
 COSIC_LLM_BASE_URL=https://testvideo.site/v1
 COSIC_LLM_API_KEY=your_key_here
-COSIC_LLM_MODEL=gpt-5.5
-COSIC_LLM_REASONING_EFFORT=xhigh
+COSIC_LLM_MODEL=gpt-5.4
 
 COSIC_MUSIC_PROVIDER=netease
 COSIC_MUSIC_BASE_URL=

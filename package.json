@@ -12,7 +12,6 @@
     "dev:app": "wait-on tcp:5173 file:dist-electron/electron/main.js && electron .",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.electron.json",
     "test:package-config": "node scripts/smoke-package-config.mjs",
-    "test:llm-config": "node scripts/smoke-llm-config.mjs",
     "test:ui-copy-layout": "node scripts/smoke-ui-copy-layout.mjs",
     "test:ai-ui-contract": "node scripts/smoke-ai-ui-contract.mjs",
     "test:layout-composition": "node scripts/smoke-layout-composition.mjs",

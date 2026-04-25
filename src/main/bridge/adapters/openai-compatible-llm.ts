@@ -12,7 +12,6 @@ interface LlmConfig {
   apiKey: string;
   baseUrl: string;
   model: string;
-  reasoningEffort: string;
   timeoutMs: number;
 }
 
@@ -29,16 +28,12 @@ interface DiscoveryPlan {
   queries: string[];
 }
 
-const DEFAULT_LLM_MODEL = 'gpt-5.5';
-const DEFAULT_REASONING_EFFORT = 'xhigh';
-
 const sanitizeBaseUrl = (value: string) => value.replace(/\/+$/, '');
 
 const readConfig = (): LlmConfig | null => {
   const apiKey = process.env.COSIC_LLM_API_KEY?.trim();
   const baseUrl = process.env.COSIC_LLM_BASE_URL?.trim();
-  const model = process.env.COSIC_LLM_MODEL?.trim() || DEFAULT_LLM_MODEL;
-  const reasoningEffort = process.env.COSIC_LLM_REASONING_EFFORT?.trim() || DEFAULT_REASONING_EFFORT;
+  const model = process.env.COSIC_LLM_MODEL?.trim() || 'gpt-5.4';
   const timeoutMs = Number(process.env.COSIC_LLM_TIMEOUT_MS || '30000');
 
   if (!apiKey || !baseUrl) {
@@ -49,7 +44,6 @@ const readConfig = (): LlmConfig | null => {
     apiKey,
     baseUrl: sanitizeBaseUrl(baseUrl),
     model,
-    reasoningEffort,
     timeoutMs: Number.isFinite(timeoutMs) ? timeoutMs : 30000
   };
 };
@@ -136,7 +130,7 @@ export class OpenAiCompatibleLlmAdapter {
   }
 
   getModelName() {
-    return this.config?.model ?? DEFAULT_LLM_MODEL;
+    return this.config?.model ?? 'gpt-5.4';
   }
 
   getStatus(): BridgeHealth {
@@ -187,7 +181,6 @@ export class OpenAiCompatibleLlmAdapter {
       method: 'POST',
       body: JSON.stringify({
         model: this.config.model,
-        reasoning_effort: this.config.reasoningEffort,
         temperature: 0.8,
         messages: [
           {
@@ -234,7 +227,6 @@ export class OpenAiCompatibleLlmAdapter {
       method: 'POST',
       body: JSON.stringify({
         model: this.config.model,
-        reasoning_effort: this.config.reasoningEffort,
         temperature: 0.6,
         response_format: { type: 'json_object' },
         messages: [
@@ -296,7 +288,6 @@ export class OpenAiCompatibleLlmAdapter {
       method: 'POST',
       body: JSON.stringify({
         model: this.config.model,
-        reasoning_effort: this.config.reasoningEffort,
         temperature: 0.7,
         response_format: { type: 'json_object' },
         messages: [
@@ -431,7 +422,6 @@ export class OpenAiCompatibleLlmAdapter {
       method: 'POST',
       body: JSON.stringify({
         model: this.config.model,
-        reasoning_effort: this.config.reasoningEffort,
         temperature: 0.5,
         response_format: { type: 'json_object' },
         messages: [
