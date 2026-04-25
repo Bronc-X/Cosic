@@ -1,0 +1,47 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+
+const appSource = fs.readFileSync('src/renderer/App.tsx', 'utf8');
+const contractSource = fs.readFileSync('src/shared/contracts/bridge.ts', 'utf8');
+const curatorSource = fs.readFileSync('src/renderer/components/CuratorPanel.tsx', 'utf8');
+const dailyBriefSource = fs.readFileSync('src/renderer/components/DailyBriefPanel.tsx', 'utf8');
+const playbackSource = fs.readFileSync('src/renderer/components/PlaybackDeck.tsx', 'utf8');
+const queueRailSource = fs.readFileSync('src/renderer/components/QueueRail.tsx', 'utf8');
+const titleBarSource = fs.readFileSync('src/renderer/components/TitleBar.tsx', 'utf8');
+const particleSource = fs.readFileSync('src/renderer/components/CursorParticleField.tsx', 'utf8');
+const mainSource = fs.readFileSync('electron/main.ts', 'utf8');
+const weatherSource = fs.readFileSync('src/main/bridge/adapters/open-weather-adapter.ts', 'utf8');
+const cssSource = fs.readFileSync('src/renderer/styles/index.css', 'utf8');
+
+assert.doesNotMatch(titleBarSource, /PLAYER|REGULAR|COMPACT|titlebar-readout/, 'titlebar must not show useless mode pills');
+assert.match(appSource, /localStorage|CHAT_HISTORY_KEY/, 'chat must keep history in local storage');
+assert.doesNotMatch(curatorSource, /messages\.slice\(-6\)/, 'chat must not truncate visible history to the last few messages');
+assert.doesNotMatch(curatorSource, /settings-rail|对外版接入指引/, 'setup guidance must not sit in the right top playlist panel');
+assert.match(dailyBriefSource, /clock-weather-grid/, 'clock panel must be reduced to clock, region, and weather');
+assert.doesNotMatch(dailyBriefSource, /moodGuess|tasteAnchor|moodReason|partOfDayLabel/, 'clock panel must not show mood or taste explanation copy');
+assert.match(weatherSource, /open-meteo\.com/, 'weather must use no-key Open-Meteo endpoints');
+assert.doesNotMatch(weatherSource, /COSIC_WEATHER_API_KEY|openweathermap/, 'weather must not require an API key');
+assert.doesNotMatch(playbackSource, /大模型未返回曲目介绍/, 'track note fallback must never expose LLM failure copy');
+assert.match(playbackSource, /buildLocalLinerNote/, 'every track must have a local liner-note fallback');
+assert.doesNotMatch(playbackSource, /className="deck-note"|sessionNote/, 'player must not show the daily environment sentence under track notes');
+assert.match(playbackSource, /deck-header-note/, 'track intro must live in the upper-right player note area');
+assert.match(playbackSource, /onError.+setBrokenCoverTrackId/s, 'album covers must fall back when remote artwork fails');
+assert.match(contractSource, /TrackLyrics|LyricsLine/, 'lyrics must be a real bridge contract, not local fake copy');
+assert.match(mainSource, /cosic:get-track-lyrics/, 'Electron must expose a lyrics IPC endpoint');
+assert.match(appSource, /getTrackLyrics|trackLyrics/, 'renderer must request real track lyrics through the bridge');
+assert.match(playbackSource, /deck-lyrics-button|lyricMode|activeLyricLineIndex/, 'player must provide a lyric button with current-line sync');
+assert.doesNotMatch(playbackSource, /TRACK TRAVEL|deck-progress-band/, 'redundant track travel progress bar must be removed from the player');
+assert.match(queueRailSource, /randomPlaylist/, 'left playlist panel must render randomized recommendations from all playlists');
+assert.doesNotMatch(queueRailSource, /AI STACK|ORIGIN|queueLabel|queueMeta/, 'left playlist panel must not mirror current queue state');
+assert.match(curatorSource, /playlistTracks|playlist-preview-list/, 'right panel must show the selected random playlist track list');
+assert.match(appSource, /const playlistToken = `library-\$\{playlistId\}/, 'playlist autoplay token must be created once per library switch');
+assert.match(appSource, /setAutoplayQueueToken\(playlistToken\)/, 'selecting a random playlist must autoplay it');
+assert.match(appSource, /LocationPermissionDialog|requestClientLocation/, 'location must be requested through an explicit UI dialog');
+assert.match(mainSource, /geolocation|setPermissionRequestHandler/, 'Electron must allow geolocation permission requests');
+assert.match(appSource, /CursorParticleField/, 'app shell must mount the mouse-tracking particle field');
+assert.match(cssSource, /cursor-particle-field/, 'particle field must have a dedicated transparent layer');
+assert.match(particleSource, /DOT_COUNT|FLEE_RADIUS|ORBIT_RADIUS|updateDot|wakeDotNearPointer|arc\(/, 'particle field must render a fish-school dotted patch with flee/orbit behavior');
+assert.match(cssSource, /grid-template-rows:\s*minmax\(0,\s*0\.72fr\)\s+minmax\(96px,\s*auto\)\s+minmax\(260px,\s*0\.42fr\)/, 'left stack must compress the player and reserve two rows for playlist buttons');
+assert.match(cssSource, /playlist-button-grid[\s\S]*overflow:\s*auto/, 'random playlists must be scrollable');
+
+console.log('current ui requirements smoke passed');

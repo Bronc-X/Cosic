@@ -1,0 +1,75 @@
+{
+  "name": "cosic-player",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A cross-platform desktop player with a local bridge for personal AI radio workflows.",
+  "main": "dist-electron/electron/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\" \"npm:dev:app\"",
+    "bridge:music": "node local-bridge/music-bridge.mjs",
+    "dev:renderer": "vite --host 127.0.0.1 --port 5173",
+    "dev:electron": "tsc -p tsconfig.electron.json --watch --preserveWatchOutput",
+    "dev:app": "wait-on tcp:5173 file:dist-electron/electron/main.js && electron .",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.electron.json",
+    "test:package-config": "node scripts/smoke-package-config.mjs",
+    "test:llm-config": "node scripts/smoke-llm-config.mjs",
+    "test:ui-copy-layout": "node scripts/smoke-ui-copy-layout.mjs",
+    "test:ai-ui-contract": "node scripts/smoke-ai-ui-contract.mjs",
+    "test:layout-composition": "node scripts/smoke-layout-composition.mjs",
+    "test:current-ui": "node scripts/smoke-current-ui-requirements.mjs",
+    "build:renderer": "vite build",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "build": "npm run typecheck && npm run build:renderer && npm run build:electron",
+    "package": "npm run build && node scripts/package-with-mirrors.mjs"
+  },
+  "build": {
+    "appId": "studio.toni.cosic.player",
+    "productName": "Cosic Player",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "dist-electron/**",
+      "local-bridge/**",
+      "tools/**",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "local-bridge/**",
+      "tools/**",
+      "node_modules/@unblockneteasemusic/server/**"
+    ],
+    "mac": {
+      "category": "public.app-category.music",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        "zip"
+      ]
+    }
+  },
+  "dependencies": {
+    "@unblockneteasemusic/server": "^0.28.0",
+    "media-chrome": "^4.19.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.2",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.1.0",
+    "concurrently": "^9.2.1",
+    "electron": "^41.3.0",
+    "electron-builder": "^26.0.12",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.10",
+    "wait-on": "^9.0.1"
+  }
+}
