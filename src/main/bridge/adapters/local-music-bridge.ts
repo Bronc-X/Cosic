@@ -93,10 +93,13 @@ export interface MusicBootstrapResult {
   tracks: Track[];
 }
 
-const BOOTSTRAP_TRACK_LIMIT = 18;
+const PLAYLIST_MIN_TRACKS = 15;
+const BOOTSTRAP_TRACK_LIMIT = 50;
+const PLAYLIST_MAX_TRACKS = 50;
 const PLAYABLE_SCAN_MULTIPLIER = 4;
 const PLAYABLE_BATCH_SIZE = 8;
-const REQUEST_TIMEOUT_MS = 4_000;
+const REQUEST_TIMEOUT_MS = 12_000;
+const DEFAULT_LOCAL_BRIDGE_URL = 'http://127.0.0.1:7878';
 const fallbackTheme: TrackTheme = {
   primary: '#f4f1ea',
   secondary: '#181512',
@@ -129,7 +132,31 @@ const themePalette: TrackTheme[] = [
 
 const hasValue = (value: string | undefined) => Boolean(value && value.trim());
 
-const clampTracks = <T>(items: T[], limit: number) => items.slice(0, Math.max(1, limit));
+const clampPlaylistTrackLimit = (limit: number) => {
+  const normalized = Math.floor(limit);
+  return Number.isFinite(normalized)
+    ? Math.max(PLAYLIST_MIN_TRACKS, Math.min(PLAYLIST_MAX_TRACKS, normalized))
+    : BOOTSTRAP_TRACK_LIMIT;
+};
+
+const clampTracks = <T>(items: T[], limit: number) => items.slice(0, clampPlaylistTrackLimit(limit));
+
+const getRandomUnit = () => {
+  const values = new Uint32Array(1);
+  globalThis.crypto?.getRandomValues(values);
+  return values[0] ? values[0] / 0xffffffff : Math.random();
+};
+
+const shuffleTracks = <T>(items: T[]) => {
+  const shuffled = [...items];
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(getRandomUnit() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+
+  return shuffled;
+};
 
 const compiledProjectRoot = () => path.resolve(__dirname, '../../../../..');
 
@@ -223,6 +250,15 @@ export class LocalMusicBridgeAdapter {
     return this.provider === 'netease' && hasValue(this.baseUrl);
   }
 
+  getPublicScoreUrl(localUrl: string) {
+    const normalized = localUrl.trim();
+    if (!normalized.startsWith('/scores/')) {
+      return '';
+    }
+
+    return `${(this.baseUrl || DEFAULT_LOCAL_BRIDGE_URL).replace(/\/+$/, '')}${normalized}`;
+  }
+
   async probe(): Promise<CapabilityProbeResult> {
     const checkedAt = new Date().toISOString();
 
@@ -269,6 +305,7 @@ export class LocalMusicBridgeAdapter {
       return null;
     }
 
+    const trackLimit = clampPlaylistTrackLimit(limit);
     const playlists = await this.listPlaylists();
     const chosenPlaylist = playlists.items.find((item) => item.trackCount > 0) ?? playlists.items[0] ?? null;
 
@@ -276,7 +313,7 @@ export class LocalMusicBridgeAdapter {
       return null;
     }
 
-    return this.loadPlaylist(chosenPlaylist.id, limit, playlists.account?.nickname || 'NetEase');
+    return this.loadPlaylist(chosenPlaylist.id, trackLimit, playlists.account?.nickname || 'NetEase');
   }
 
   async listPlaylists(): Promise<MusicBridgePlaylistList> {
@@ -301,9 +338,10 @@ export class LocalMusicBridgeAdapter {
       return null;
     }
 
+    const trackLimit = clampPlaylistTrackLimit(limit);
     const detail = await this.request<MusicBridgePlaylistDetail>(`/playlists/${playlistId}`);
-    const scanLimit = Math.min(detail.tracks.length, Math.max(limit * PLAYABLE_SCAN_MULTIPLIER, 36));
-    const hydrated = await this.collectPlayablePlaylistTracks(detail, limit, scanLimit);
+    const scanLimit = Math.min(detail.tracks.length, Math.max(trackLimit * PLAYABLE_SCAN_MULTIPLIER, 36));
+    const hydrated = await this.collectPlayablePlaylistTracks(detail, trackLimit, scanLimit);
 
     if (!hydrated.length) {
       return null;
@@ -313,7 +351,7 @@ export class LocalMusicBridgeAdapter {
       accountLabel,
       playlistId: detail.id,
       playlistName: detail.name,
-      tracks: hydrated
+      tracks: shuffleTracks(hydrated)
     };
   }
 
@@ -562,6 +600,7 @@ export class LocalMusicBridgeAdapter {
         throw error;
       }
 
+      this.bridgeStartPromise = null;
       const started = await this.ensureLocalBridgeRunning();
       if (!started) {
         throw error;
@@ -635,6 +674,10 @@ export class LocalMusicBridgeAdapter {
       return false;
     }
 
+    if (await this.isLocalBridgeHealthy()) {
+      return true;
+    }
+
     if (!this.bridgeStartPromise) {
       this.bridgeStartPromise = this.startLocalBridge();
     }
@@ -645,6 +688,18 @@ export class LocalMusicBridgeAdapter {
     }
 
     return result;
+  }
+
+  private async isLocalBridgeHealthy() {
+    try {
+      const response = await fetch(`${this.baseUrl}/health`, {
+        signal: AbortSignal.timeout(1_500)
+      });
+
+      return response.ok;
+    } catch {
+      return false;
+    }
   }
 
   private async startLocalBridge() {
@@ -673,16 +728,8 @@ export class LocalMusicBridgeAdapter {
     for (let attempt = 0; attempt < 16; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 250));
 
-      try {
-        const response = await fetch(`${this.baseUrl}/health`, {
-          signal: AbortSignal.timeout(1_500)
-        });
-
-        if (response.ok) {
-          return true;
-        }
-      } catch {
-        // Keep polling until the local bridge is ready.
+      if (await this.isLocalBridgeHealthy()) {
+        return true;
       }
     }
 

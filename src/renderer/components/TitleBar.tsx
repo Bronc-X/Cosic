@@ -1,8 +1,14 @@
 import type { WindowPlatform, WindowState } from '../../shared/contracts/bridge';
+import { CosicLogoMark } from './CosicLogoMark';
+
+type ThemeMode = 'dark' | 'light';
 
 interface TitleBarProps {
   windowState: WindowState;
-  statusLabel: string;
+  isRadioUnlocked: boolean;
+  themeMode: ThemeMode;
+  onToggleTheme: () => void;
+  onOpenRadioMode: () => void;
   onMinimize: () => void;
   onToggleMaximize: () => void;
   onClose: () => void;
@@ -60,12 +66,28 @@ function WindowButtons({
 
 export function TitleBar({
   windowState,
-  statusLabel,
+  isRadioUnlocked,
+  themeMode,
+  onToggleTheme,
+  onOpenRadioMode,
   onMinimize,
   onToggleMaximize,
   onClose
 }: TitleBarProps) {
   const isMac = windowState.platform === 'darwin';
+  const themeLabel = themeMode === 'light' ? '浅色' : '深色';
+  const nextThemeLabel = themeMode === 'light' ? '深色' : '浅色';
+  const radioButton = (
+    <button
+      className={`radio-entry-button no-drag${isRadioUnlocked ? '' : ' is-locked'}`}
+      type="button"
+      onClick={onOpenRadioMode}
+      disabled={!isRadioUnlocked}
+    >
+      <span>RADIO</span>
+      <strong>{isRadioUnlocked ? '电台' : '23点后开放'}</strong>
+    </button>
+  );
 
   return (
     <header className={isMac ? 'titlebar is-mac' : 'titlebar is-win'}>
@@ -80,16 +102,21 @@ export function TitleBar({
       ) : null}
 
       <div className="titlebar-brand">
-        <div className="brand-grid" aria-hidden="true">
-          <span />
-          <span />
-          <span />
-          <span />
-        </div>
-        <div className="brand-copy">
-          <strong>Cosic</strong>
-          <span>{statusLabel}</span>
-        </div>
+        <CosicLogoMark className="brand-logo-mark" />
+      </div>
+
+      <div className="titlebar-actions">
+        <button
+          className={`theme-toggle-button no-drag is-${themeMode}`}
+          type="button"
+          onClick={onToggleTheme}
+          aria-label={`切换到${nextThemeLabel}界面`}
+          title={`切换到${nextThemeLabel}界面`}
+        >
+          <span className="theme-toggle-orbit" aria-hidden="true" />
+          <strong>{themeLabel}</strong>
+        </button>
+        {radioButton}
       </div>
 
       {!isMac ? (

@@ -1,0 +1,62 @@
+name: Release Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload_name:
+        description: Artifact name shown in GitHub Actions
+        required: false
+        default: cosic-player-package
+
+jobs:
+  windows-package:
+    name: Windows package
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Decode Windows certificate
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+        run: |
+          if (-not $env:WINDOWS_CERTIFICATE_BASE64) {
+            Write-Host "No Windows signing certificate secret configured; building unsigned package."
+            exit 0
+          }
+          New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\cosic-certs" | Out-Null
+          [IO.File]::WriteAllBytes(
+            "$env:RUNNER_TEMP\cosic-certs\windows-signing.pfx",
+            [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE_BASE64)
+          )
+          "CSC_LINK=$env:RUNNER_TEMP\cosic-certs\windows-signing.pfx" >> $env:GITHUB_ENV
+
+      - name: Build package
+        shell: pwsh
+        env:
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: npm run package
+
+      - name: Remove decoded certificate
+        if: always()
+        shell: pwsh
+        run: Remove-Item -Recurse -Force "$env:RUNNER_TEMP\cosic-certs" -ErrorAction SilentlyContinue
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.upload_name }}
+          path: release/**
+          if-no-files-found: error

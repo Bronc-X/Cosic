@@ -18,6 +18,9 @@ const STREAM_EXPIRE_FALLBACK_SECONDS = 20 * 60;
 const STREAM_REFRESH_SKEW_MS = 15 * 1000;
 const AUDIO_PROXY_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+const ARTWORK_CACHE_SECONDS = 60 * 60 * 24 * 7;
+const SCORE_CACHE_SECONDS = 60 * 60 * 24 * 7;
+const SCORE_CACHE_ROOT = path.join(projectRoot, 'artifacts', 'scores');
 const UNM_DEFAULT_SOURCES = ['pyncmd', 'migu', 'kugou', 'bilibili', 'kuwo', 'bodian', 'ytdlp'];
 const streamCache = new Map();
 let unmMatcher;
@@ -166,6 +169,77 @@ const getPublicBaseUrl = () => readBaseUrl().replace(/\/+$/, '');
 const buildOuterAudioUrl = (trackId) =>
   `${NETEASE_ORIGIN}/song/media/outer/url?id=${encodeURIComponent(trackId)}.mp3`;
 
+const normalizeRemoteArtworkUrl = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) {
+    return '';
+  }
+
+  if (raw.startsWith('//')) {
+    return `https:${raw}`;
+  }
+
+  if (!/^https?:\/\//i.test(raw)) {
+    return '';
+  }
+
+  return raw.replace(/^http:\/\//i, 'https://');
+};
+
+const isAllowedArtworkUrl = (value) => {
+  try {
+    const { protocol, hostname } = new URL(value);
+    const host = hostname.toLowerCase();
+
+    return (
+      protocol === 'https:' &&
+      (host === 'music.163.com' ||
+        host.endsWith('.music.163.com') ||
+        host === 'music.126.net' ||
+        host.endsWith('.music.126.net'))
+    );
+  } catch {
+    return false;
+  }
+};
+
+const hashString = (value) => {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+
+  return hash;
+};
+
+const escapeSvgText = (value) =>
+  String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+const buildFallbackArtworkUrl = ({ seed, title, artist }) => {
+  const params = new URLSearchParams({
+    seed: String(seed || title || artist || 'cosic'),
+    title: String(title || 'Untitled'),
+    artist: String(artist || 'Cosic')
+  });
+
+  return `${getPublicBaseUrl()}/artwork/fallback?${params.toString()}`;
+};
+
+const buildArtworkProxyUrl = (remoteUrl, fallback) => {
+  const normalized = normalizeRemoteArtworkUrl(remoteUrl);
+  if (!normalized || !isAllowedArtworkUrl(normalized)) {
+    return fallback ? buildFallbackArtworkUrl(fallback) : '';
+  }
+
+  return `${getPublicBaseUrl()}/artwork?url=${encodeURIComponent(normalized)}`;
+};
+
+const buildCoverUrl = (remoteUrl, fallback) => buildArtworkProxyUrl(remoteUrl, fallback);
+
 const authMode = readMusicCookie()
   ? 'cookie'
   : process.env.COSIC_MUSIC_API_KEY?.trim()
@@ -213,7 +287,7 @@ const isAllowedCorsOrigin = (origin) => {
 
 const corsHeaders = (request) => {
   const headers = {
-    'Access-Control-Allow-Methods': 'GET,OPTIONS',
+    'Access-Control-Allow-Methods': 'GET,HEAD,OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, Range'
   };
   const origin = request?.headers?.origin;
@@ -250,6 +324,10 @@ const upstreamError = (response, message, details, request) => {
   }, request);
 };
 
+const badRequest = (response, message = 'Bad request.', request) => {
+  json(response, 400, { ok: false, message }, request);
+};
+
 const toErrorMessage = (error) => {
   if (error instanceof Error) {
     return error.message;
@@ -257,6 +335,10 @@ const toErrorMessage = (error) => {
 
   return 'Unknown error.';
 };
+
+process.on('unhandledRejection', (error) => {
+  console.warn('[music-bridge] ignored async provider rejection:', toErrorMessage(error));
+});
 
 const getRequestHeaders = () => {
   const cookie = readMusicCookie();
@@ -329,6 +411,13 @@ const neteaseFetchJson = async (pathname) => {
     throw new Error(`NetEase request failed for ${pathname} with status ${response.status}.`);
   }
 
+  const businessCode = Number(payload?.code);
+  if (Number.isFinite(businessCode) && businessCode !== 200) {
+    throw new Error(
+      payload?.message || payload?.msg || `NetEase request failed for ${pathname} with code ${businessCode}.`
+    );
+  }
+
   return payload;
 };
 
@@ -363,7 +452,11 @@ const listPlaylists = async () => {
       name: playlist.name || 'Untitled playlist',
       description: playlist.description || '',
       trackCount: Number(playlist.trackCount || 0),
-      coverUrl: playlist.coverImgUrl || '',
+      coverUrl: buildCoverUrl(playlist.coverImgUrl, {
+        seed: playlist.id,
+        title: playlist.name || 'Untitled playlist',
+        artist: 'Playlist'
+      }),
       updatedAt: playlist.updateTime
         ? new Date(playlist.updateTime).toISOString()
         : new Date().toISOString()
@@ -385,8 +478,12 @@ const fetchMissingSongs = async (trackIds, existingIds) => {
     return [];
   }
 
+  return fetchSongDetails(missingIds);
+};
+
+const fetchSongDetails = async (trackIds) => {
   const songs = [];
-  for (const group of chunk(missingIds, SONG_DETAIL_CHUNK_SIZE)) {
+  for (const group of chunk(trackIds, SONG_DETAIL_CHUNK_SIZE)) {
     const payload = await neteaseFetchJson(`/api/song/detail?ids=[${group.join(',')}]`);
     const part = Array.isArray(payload?.songs) ? payload.songs : [];
     songs.push(...part);
@@ -400,15 +497,22 @@ const normalizeTrack = (song) => {
   const artists = song.ar || song.artists || [];
   const publishTime = song.publishTime || song.publish || song.publishDate || null;
   const year = publishTime ? new Date(publishTime).getFullYear() : null;
+  const id = String(song.id);
+  const title = song.name || 'Untitled track';
+  const artist = artists.map((item) => item.name).filter(Boolean).join(' / ') || 'Unknown artist';
 
   return {
-    id: String(song.id),
-    title: song.name || 'Untitled track',
-    artist: artists.map((artist) => artist.name).filter(Boolean).join(' / ') || 'Unknown artist',
+    id,
+    title,
+    artist,
     album: album.name || 'Unknown album',
     duration: Math.max(1, Math.round(Number(song.dt || song.duration || 0) / 1000)),
     year: year ? String(year) : '',
-    coverUrl: album.picUrl || album.blurPicUrl || ''
+    coverUrl: buildCoverUrl(album.picUrl || album.blurPicUrl, {
+      seed: id,
+      title,
+      artist
+    })
   };
 };
 
@@ -445,7 +549,11 @@ const getPlaylist = async (playlistId) => {
     id: String(playlist.id),
     name: playlist.name || 'Untitled playlist',
     description: playlist.description || '',
-    coverUrl: playlist.coverImgUrl || '',
+    coverUrl: buildCoverUrl(playlist.coverImgUrl, {
+      seed: playlist.id,
+      title: playlist.name || 'Untitled playlist',
+      artist: 'Playlist'
+    }),
     trackCount: Number(playlist.trackCount || orderedSongs.length),
     tracks: orderedSongs
   };
@@ -715,10 +823,14 @@ const searchTracks = async (query, limit = 8) => {
   );
 
   const songs = Array.isArray(payload?.result?.songs) ? payload.result.songs : [];
+  const detailSongs = await fetchSongDetails(
+    songs.map((song) => Number(song?.id)).filter(Number.isFinite)
+  ).catch(() => []);
+  const detailsById = new Map(detailSongs.map((song) => [String(song.id), song]));
 
   return {
     query,
-    items: songs.map(normalizeTrack)
+    items: songs.map((song) => normalizeTrack(detailsById.get(String(song.id)) || song))
   };
 };
 
@@ -736,7 +848,11 @@ const searchPlaylists = async (query, limit = 6) => {
       name: playlist.name || 'Untitled playlist',
       description: playlist.description || '',
       trackCount: Number(playlist.trackCount || 0),
-      coverUrl: playlist.coverImgUrl || '',
+      coverUrl: buildCoverUrl(playlist.coverImgUrl, {
+        seed: playlist.id,
+        title: playlist.name || 'Untitled playlist',
+        artist: 'Playlist'
+      }),
       updatedAt: playlist.updateTime
         ? new Date(playlist.updateTime).toISOString()
         : new Date().toISOString()
@@ -809,6 +925,259 @@ const proxyTrackAudio = async (request, response, trackId) => {
   upstreamBody.pipe(response);
 };
 
+const isSafeScorePart = (value) => /^[a-z0-9][a-z0-9._-]{0,160}$/i.test(value);
+
+const resolveScorePdfPath = (workId, fileName) => {
+  if (!isSafeScorePart(workId) || !isSafeScorePart(fileName) || !/\.pdf$/i.test(fileName)) {
+    return null;
+  }
+
+  const root = path.resolve(SCORE_CACHE_ROOT);
+  const candidate = path.resolve(root, workId, fileName);
+  const insideRoot = candidate === root || candidate.startsWith(`${root}${path.sep}`);
+
+  return insideRoot ? candidate : null;
+};
+
+const parseRangeHeader = (rangeHeader, size) => {
+  if (typeof rangeHeader !== 'string') {
+    return null;
+  }
+
+  const match = rangeHeader.match(/^bytes=(\d*)-(\d*)$/);
+  if (!match) {
+    return null;
+  }
+
+  const [, rawStart, rawEnd] = match;
+  if (!rawStart && !rawEnd) {
+    return null;
+  }
+
+  let start;
+  let end;
+
+  if (!rawStart) {
+    const suffixLength = Number.parseInt(rawEnd, 10);
+    if (!Number.isFinite(suffixLength) || suffixLength <= 0) {
+      return null;
+    }
+    start = Math.max(size - suffixLength, 0);
+    end = size - 1;
+  } else {
+    start = Number.parseInt(rawStart, 10);
+    end = rawEnd ? Number.parseInt(rawEnd, 10) : size - 1;
+  }
+
+  if (
+    !Number.isFinite(start) ||
+    !Number.isFinite(end) ||
+    start < 0 ||
+    end < start ||
+    start >= size
+  ) {
+    return null;
+  }
+
+  return {
+    start,
+    end: Math.min(end, size - 1)
+  };
+};
+
+const sendCachedScorePdf = async (request, response, workId, fileName) => {
+  const filePath = resolveScorePdfPath(workId, fileName);
+  if (!filePath) {
+    return badRequest(response, 'Invalid score path.', request);
+  }
+
+  let stat;
+  try {
+    stat = await fs.promises.stat(filePath);
+  } catch {
+    return notFound(response, 'Score PDF not found.', request);
+  }
+
+  if (!stat.isFile()) {
+    return notFound(response, 'Score PDF not found.', request);
+  }
+
+  const range = parseRangeHeader(request.headers.range, stat.size);
+  const headers = {
+    ...corsHeaders(request),
+    'Content-Type': 'application/pdf',
+    'Accept-Ranges': 'bytes',
+    'Cache-Control': `public, max-age=${SCORE_CACHE_SECONDS}, immutable`,
+    'Content-Disposition': `inline; filename="${fileName.replace(/"/g, '')}"`,
+    'X-Content-Type-Options': 'nosniff'
+  };
+
+  if (range) {
+    const chunkSize = range.end - range.start + 1;
+    response.writeHead(206, {
+      ...headers,
+      'Content-Length': chunkSize,
+      'Content-Range': `bytes ${range.start}-${range.end}/${stat.size}`
+    });
+
+    if (request.method === 'HEAD') {
+      response.end();
+      return;
+    }
+
+    fs.createReadStream(filePath, { start: range.start, end: range.end }).pipe(response);
+    return;
+  }
+
+  response.writeHead(200, {
+    ...headers,
+    'Content-Length': stat.size
+  });
+
+  if (request.method === 'HEAD') {
+    response.end();
+    return;
+  }
+
+  fs.createReadStream(filePath).pipe(response);
+};
+
+const isImageResponse = (response) => {
+  const contentType = response.headers.get('content-type')?.toLowerCase() || '';
+
+  return contentType.startsWith('image/');
+};
+
+const getArtworkProxyHeaders = (remoteUrl) => {
+  const headers = {
+    accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+    'user-agent': AUDIO_PROXY_USER_AGENT,
+    referer: `${NETEASE_ORIGIN}/`,
+    origin: NETEASE_ORIGIN
+  };
+
+  if (readMusicCookie()) {
+    headers.cookie = readMusicCookie();
+  }
+
+  return headers;
+};
+
+const proxyArtwork = async (request, response, remoteUrl) => {
+  const normalized = normalizeRemoteArtworkUrl(remoteUrl);
+  if (!normalized || !isAllowedArtworkUrl(normalized)) {
+    return notFound(response, 'Artwork URL is not allowed.', request);
+  }
+
+  const upstream = await fetch(normalized, {
+    headers: getArtworkProxyHeaders(normalized),
+    redirect: 'follow',
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+  });
+
+  if (!isAllowedArtworkUrl(upstream.url || normalized)) {
+    return notFound(response, 'Artwork redirect is not allowed.', request);
+  }
+
+  if (!upstream.ok || !upstream.body || !isImageResponse(upstream)) {
+    return upstreamError(
+      response,
+      'Artwork proxy failed.',
+      isImageResponse(upstream) ? `Upstream status ${upstream.status}` : 'Upstream returned non-image content',
+      request
+    );
+  }
+
+  const headers = {
+    ...corsHeaders(request),
+    'Content-Type': upstream.headers.get('content-type') || 'image/jpeg',
+    'Cache-Control': `public, max-age=${ARTWORK_CACHE_SECONDS}, immutable`
+  };
+  const contentLength = upstream.headers.get('content-length');
+  if (contentLength) {
+    headers['Content-Length'] = contentLength;
+  }
+
+  response.writeHead(upstream.status, headers);
+
+  const upstreamBody = Readable.fromWeb(upstream.body);
+  const closeUpstream = () => {
+    upstreamBody.destroy();
+  };
+
+  response.on('error', closeUpstream);
+  request.on('aborted', closeUpstream);
+  response.on('close', () => {
+    if (!response.writableEnded) {
+      closeUpstream();
+    }
+  });
+  upstreamBody.on('error', (error) => {
+    if (!response.destroyed) {
+      response.destroy(error);
+    }
+  });
+  upstreamBody.on('end', () => {
+    response.off('error', closeUpstream);
+    request.off('aborted', closeUpstream);
+  });
+
+  upstreamBody.pipe(response);
+};
+
+const fallbackArtworkPalettes = [
+  ['#1b2a2a', '#8be7df', '#f6fff8'],
+  ['#281b26', '#f4a7d8', '#fff6fb'],
+  ['#241f14', '#f0cf78', '#fff8df'],
+  ['#141d2b', '#9ec9ff', '#f4fbff'],
+  ['#20181a', '#f49a8f', '#fff2ef']
+];
+
+const buildFallbackArtworkSvg = ({ seed, title, artist }) => {
+  const palette = fallbackArtworkPalettes[hashString(seed) % fallbackArtworkPalettes.length];
+  const [background, accent, foreground] = palette || fallbackArtworkPalettes[0];
+  const cleanTitle = String(title || 'Untitled').trim().slice(0, 44);
+  const cleanArtist = String(artist || 'Cosic').trim().slice(0, 34);
+  const initial = escapeSvgText((cleanTitle || cleanArtist || 'C').slice(0, 1).toUpperCase());
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="${escapeSvgText(cleanTitle)} cover">
+  <defs>
+    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="${background}"/>
+      <stop offset="1" stop-color="#050607"/>
+    </linearGradient>
+    <radialGradient id="r" cx="72%" cy="24%" r="68%">
+      <stop offset="0" stop-color="${accent}" stop-opacity="0.58"/>
+      <stop offset="1" stop-color="${accent}" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#g)"/>
+  <rect width="512" height="512" fill="url(#r)"/>
+  <circle cx="114" cy="112" r="7" fill="${foreground}" opacity="0.56"/>
+  <circle cx="398" cy="86" r="5" fill="${foreground}" opacity="0.34"/>
+  <circle cx="426" cy="386" r="4" fill="${foreground}" opacity="0.32"/>
+  <path d="M80 376c74-42 147-42 221 0s132 42 174 0v54c-42 42-100 42-174 0S154 388 80 430z" fill="${accent}" opacity="0.22"/>
+  <text x="58" y="224" fill="${foreground}" font-family="Arial, sans-serif" font-size="112" font-weight="800" letter-spacing="6">${initial}</text>
+  <text x="58" y="346" fill="${foreground}" font-family="Arial, sans-serif" font-size="30" font-weight="700">${escapeSvgText(cleanTitle)}</text>
+  <text x="58" y="386" fill="${foreground}" opacity="0.72" font-family="Arial, sans-serif" font-size="22">${escapeSvgText(cleanArtist)}</text>
+</svg>`;
+};
+
+const sendFallbackArtwork = (request, response, params) => {
+  const title = params.get('title') || 'Untitled';
+  const artist = params.get('artist') || 'Cosic';
+  const seed = params.get('seed') || `${title}:${artist}`;
+  const body = buildFallbackArtworkSvg({ seed, title, artist });
+
+  response.writeHead(200, {
+    ...corsHeaders(request),
+    'Content-Type': 'image/svg+xml; charset=utf-8',
+    'Cache-Control': `public, max-age=${ARTWORK_CACHE_SECONDS}, immutable`
+  });
+  response.end(body);
+};
+
 const getHealth = async () => {
   if (!readMusicCookie()) {
     return {
@@ -861,13 +1230,31 @@ const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host || `${host}:${port}`}`);
   const { pathname } = url;
 
-  if (request.method !== 'GET') {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
     return notFound(response, undefined, request);
   }
 
   try {
     if (pathname === '/health') {
       return json(response, 200, await getHealth(), request);
+    }
+
+    if (pathname === '/artwork/fallback') {
+      return sendFallbackArtwork(request, response, url.searchParams);
+    }
+
+    if (pathname === '/artwork') {
+      return proxyArtwork(request, response, url.searchParams.get('url') || '');
+    }
+
+    const scoreMatch = pathname.match(/^\/scores\/([^/]+)\/([^/]+\.pdf)$/i);
+    if (scoreMatch) {
+      return await sendCachedScorePdf(
+        request,
+        response,
+        decodeURIComponent(scoreMatch[1]),
+        decodeURIComponent(scoreMatch[2])
+      );
     }
 
     if (!readMusicCookie()) {
@@ -940,7 +1327,7 @@ const server = http.createServer(async (request, response) => {
 
     const audioMatch = pathname.match(/^\/tracks\/([^/]+)\/audio$/);
     if (audioMatch) {
-      return proxyTrackAudio(request, response, decodeURIComponent(audioMatch[1]));
+      return await proxyTrackAudio(request, response, decodeURIComponent(audioMatch[1]));
     }
   } catch (error) {
     return upstreamError(response, 'NetEase bridge request failed.', toErrorMessage(error), request);
@@ -958,6 +1345,9 @@ server.listen(port, host, () => {
   console.log('  GET /check/music?id=:id');
   console.log('  GET /search/tracks?q=:query');
   console.log('  GET /search/playlists?q=:query');
+  console.log('  GET /artwork?url=:encodedUrl');
+  console.log('  GET /artwork/fallback?seed=:seed');
+  console.log('  GET /scores/:workId/:file.pdf');
   console.log('  GET /tracks/:id/stream');
   console.log('  GET /tracks/:id/lyrics');
   console.log('  GET /tracks/:id/audio');

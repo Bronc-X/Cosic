@@ -99,6 +99,9 @@ const registerIpc = () => {
   ipcMain.handle('cosic:load-library-playlist', (_event, playlistId) =>
     bridgeService.loadLibraryPlaylist(playlistId)
   );
+  ipcMain.handle('cosic:get-classical-coverage-report', () =>
+    bridgeService.getClassicalCoverageReport()
+  );
   ipcMain.handle('cosic:analyze-music-taste', () => bridgeService.analyzeMusicTaste());
   ipcMain.handle('cosic:get-daily-station-brief', (_event, context) =>
     bridgeService.getDailyStationBrief(context)
@@ -116,10 +119,32 @@ const registerIpc = () => {
   ipcMain.handle('cosic:generate-track-insight', (_event, trackId) =>
     bridgeService.generateTrackInsight(trackId)
   );
+  ipcMain.handle('cosic:generate-playlist-track-insights', (_event, trackIds) =>
+    bridgeService.generatePlaylistTrackInsights(Array.isArray(trackIds) ? trackIds : [])
+  );
+  ipcMain.handle('cosic:generate-narration-audio', (_event, text) =>
+    bridgeService.generateNarrationAudio(typeof text === 'string' ? text : '')
+  );
+  ipcMain.handle('cosic:handle-agent-turn', (_event, request) =>
+    bridgeService.handleAgentTurn({
+      input: request?.input ?? '',
+      context: request?.context,
+      chatHistory: Array.isArray(request?.chatHistory) ? request.chatHistory : []
+    })
+  );
+  ipcMain.handle('cosic:generate-design-reference', (_event, request) =>
+    bridgeService.generateDesignReference({
+      prompt: request?.prompt ?? '',
+      mode: request?.mode,
+      size: request?.size,
+      quality: request?.quality
+    })
+  );
   ipcMain.handle('cosic:generate-curated-playlist', (_event, request) =>
     bridgeService.generateCuratedPlaylist({
       input: request?.input ?? '',
-      context: request?.context
+      context: request?.context,
+      chatHistory: Array.isArray(request?.chatHistory) ? request.chatHistory : []
     })
   );
   ipcMain.handle('cosic:window-minimize', () => {

@@ -66,25 +66,21 @@ export const getProviderReadiness = (capabilityId: ProviderCapabilityId): Provid
       });
     }
     case 'voice': {
-      const provider = process.env.COSIC_VOICE_PROVIDER?.trim() || 'fish-audio';
+      const provider = process.env.COSIC_VOICE_PROVIDER?.trim() || 'cosyvoice';
       const missingFields: string[] = [];
 
       if (!hasValue(process.env.COSIC_VOICE_BASE_URL)) {
         missingFields.push('COSIC_VOICE_BASE_URL');
       }
 
-      if (!hasValue(process.env.COSIC_VOICE_API_KEY)) {
-        missingFields.push('COSIC_VOICE_API_KEY');
-      }
-
       return createResult(provider, missingFields, {
-        readySummary: 'Voice API entry is ready.',
-        waitingSummary: 'Need a voice API base URL and key.',
+        readySummary: 'CosyVoice entry is ready.',
+        waitingSummary: 'Need a local CosyVoice FastAPI URL.',
         readyMessage:
-          'Voice bridge config is loaded. Next step is wiring TTS generation and voice selection.',
+          'CosyVoice bridge config is loaded. Track notes will prefer generated narration audio.',
         waitingMessage:
-          'Set the Fish Audio API base URL and API key before enabling live voice calls.',
-        setupMode: 'official'
+          'Start CosyVoice FastAPI locally, then set COSIC_VOICE_BASE_URL, for example http://127.0.0.1:50000.',
+        setupMode: 'self-hosted'
       });
     }
     case 'calendar': {
@@ -110,20 +106,16 @@ export const getProviderReadiness = (capabilityId: ProviderCapabilityId): Provid
       });
     }
     case 'weather': {
-      const provider = process.env.COSIC_WEATHER_PROVIDER?.trim() || 'openweather';
+      const provider = process.env.COSIC_WEATHER_PROVIDER?.trim() || 'open-meteo';
       const missingFields: string[] = [];
 
-      if (!hasValue(process.env.COSIC_WEATHER_API_KEY)) {
-        missingFields.push('COSIC_WEATHER_API_KEY');
-      }
-
       return createResult(provider, missingFields, {
-        readySummary: 'Weather API entry is ready.',
-        waitingSummary: 'Need a weather API key.',
+        readySummary: 'Open-Meteo weather entry is ready.',
+        waitingSummary: 'Weather context is unavailable.',
         readyMessage:
-          'Weather bridge config is loaded. Next step is wiring live current weather and forecast calls.',
+          'Weather bridge uses no-key Open-Meteo endpoints for live current weather.',
         waitingMessage:
-          'Generate an OpenWeather API key and add it before enabling live weather context.',
+          'Weather context uses Open-Meteo and should not require an API key.',
         setupMode: 'official'
       });
     }

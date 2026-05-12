@@ -36,6 +36,7 @@ export function useAudioPlayer(tracks: Track[], queueToken: string): AudioPlayer
   const [notice, setNotice] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const autoplayOnLoadRef = useRef(false);
+  const queueResetPendingRef = useRef(false);
   const requestIdRef = useRef(0);
   const rafRef = useRef<number | null>(null);
   const failedTrackIdsRef = useRef<Set<string>>(new Set());
@@ -168,6 +169,7 @@ export function useAudioPlayer(tracks: Track[], queueToken: string): AudioPlayer
   }, [currentIndex, tracks.length]);
 
   useEffect(() => {
+    queueResetPendingRef.current = true;
     autoplayOnLoadRef.current = false;
     requestIdRef.current += 1;
     failedTrackIdsRef.current = new Set();
@@ -289,6 +291,14 @@ export function useAudioPlayer(tracks: Track[], queueToken: string): AudioPlayer
     }
 
     const loadTrack = async () => {
+      if (queueResetPendingRef.current && currentIndex !== 0) {
+        return;
+      }
+
+      if (queueResetPendingRef.current) {
+        queueResetPendingRef.current = false;
+      }
+
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
       setError(null);
@@ -351,7 +361,7 @@ export function useAudioPlayer(tracks: Track[], queueToken: string): AudioPlayer
     };
 
     void loadTrack();
-  }, [currentTrack, currentIndex]);
+  }, [currentTrack, currentIndex, queueToken]);
 
   const togglePlayback = async () => {
     const audio = audioRef.current;
@@ -360,12 +370,17 @@ export function useAudioPlayer(tracks: Track[], queueToken: string): AudioPlayer
     }
 
     if (audio.paused) {
+      const requestId = requestIdRef.current;
       failedTrackIdsRef.current.delete(currentTrack.id);
       autoplayOnLoadRef.current = true;
       setIsBuffering(true);
 
       try {
         const source = (await window.cosic.resolveTrackSource(currentTrack.id)) || currentTrack.source;
+
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
 
         if (!source) {
           throw new Error('Track source unavailable.');
@@ -380,6 +395,10 @@ export function useAudioPlayer(tracks: Track[], queueToken: string): AudioPlayer
         await audio.play();
         setError(null);
       } catch {
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+
         setIsPlaying(false);
         setIsBuffering(false);
         skipUnavailableTrack(currentTrack);

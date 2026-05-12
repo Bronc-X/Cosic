@@ -3,8 +3,41 @@ dist/
 dist-electron/
 release/
 artifacts/
-/*.png
+coverage/
+.tmp/
+.tmp-*
+
+# Runtime state and local dev logs
 *.log
+*.pid
+*.err
+.cosic-*
+bridge-*.log
+dev-smoke.*
+run-dev.*
+tmp-*.mjs
+tmp-*.png
+
+# Local screenshots and generated QA images
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp
+
+# Local environment files
 .env
 .env.local
 .env.*.local
+
+# Private signing certificates and unpacked secrets
+certs/
+secrets/
+*.p12
+*.pfx
+*.pem
+*.key
+*.crt
+*.cer
+*.mobileprovision
+*.keystore
+*.jks

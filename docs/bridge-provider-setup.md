@@ -1,148 +1,150 @@
 # Cosic Bridge Provider Setup
 
-This file maps each bridge capability to a real configuration entry point in `.env.local`.
+This file maps every bridge capability to the current `.env.local` entry point.
 
-## Quick start
+## Quick Start
 
 1. Copy `.env.example` to `.env.local`.
-2. Fill only the providers you actually want to enable.
-3. Restart `npm run dev` after editing `.env.local`.
-4. In the app, use the Bridge panel to probe each capability.
+2. Fill only the providers you actually use.
+3. Restart `npm run dev:all` after editing `.env.local`.
+4. Probe the music bridge with `http://127.0.0.1:7878/health`.
 
-## Recommended `.env.local` shape
+## Recommended `.env.local`
 
 ```dotenv
-COSIC_LLM_BASE_URL=https://testvideo.site/v1
+COSIC_LLM_BASE_URL=https://api.openai.com/v1
 COSIC_LLM_API_KEY=your_key_here
-COSIC_LLM_MODEL=gpt-5.4
+COSIC_LLM_MODEL=gpt-5.5
+COSIC_LLM_PROXY_URL=
+
+COSIC_IMAGE_BASE_URL=https://api.openai.com/v1
+COSIC_IMAGE_API_KEY=
+COSIC_IMAGE_MODEL=gpt-image-1.5
 
 COSIC_MUSIC_PROVIDER=netease
-COSIC_MUSIC_BASE_URL=
-COSIC_MUSIC_COOKIE=
+COSIC_MUSIC_BASE_URL=http://127.0.0.1:7878
+COSIC_MUSIC_COOKIE=MUSIC_U=<your_music_u>; __csrf=<your_csrf>
 COSIC_MUSIC_API_KEY=
 
-COSIC_VOICE_PROVIDER=fish-audio
-COSIC_VOICE_BASE_URL=https://api.fish.audio
-COSIC_VOICE_API_KEY=
-COSIC_VOICE_MODEL=
+COSIC_VOICE_PROVIDER=cosyvoice
+COSIC_VOICE_BASE_URL=http://127.0.0.1:50000
+COSIC_VOICE_MODE=sft
+COSIC_VOICE_SPK_ID=中文女
+COSIC_VOICE_INSTRUCT_TEXT=用温柔、自然、克制的电台旁白语气朗读。
 
 COSIC_CALENDAR_PROVIDER=feishu
 COSIC_CALENDAR_BASE_URL=https://open.feishu.cn/open-apis
 COSIC_CALENDAR_APP_ID=
 COSIC_CALENDAR_APP_SECRET=
 
-COSIC_WEATHER_PROVIDER=openweather
-COSIC_WEATHER_BASE_URL=https://api.openweathermap.org/data/2.5
-COSIC_WEATHER_API_KEY=
+COSIC_WEATHER_PROVIDER=open-meteo
 
 COSIC_CAST_PROVIDER=upnp
-COSIC_CAST_ENABLED=true
+COSIC_CAST_ENABLED=false
 COSIC_CAST_DISCOVERY_TARGET=
 ```
 
+## LLM
+
+Mode: OpenAI-compatible chat completions.
+
+Fill:
+
+- `COSIC_LLM_BASE_URL`
+- `COSIC_LLM_API_KEY`
+- `COSIC_LLM_MODEL`
+
+The bridge also accepts `OPENAI_API_KEY` and `OPENAI_BASE_URL` as fallback values.
+
+The LLM path powers:
+
+- conversation versus playlist turn classification
+- playlist planning
+- taste analysis
+- track notes
+- daily station briefs
+
+## Image Generation
+
+Mode: OpenAI-compatible image endpoint.
+
+Fill:
+
+- `COSIC_IMAGE_BASE_URL`
+- `COSIC_IMAGE_API_KEY`
+- `COSIC_IMAGE_MODEL`
+
+The design reference panel uses this path when enabled.
+
 ## Music / NetEase Cloud Music
 
-Mode: self-hosted bridge for personal use.
+Mode: local personal bridge.
 
-Reality check: the practical path here is a personal bridge pattern, not an official open-platform approval flow for a desktop player.
+The desktop app should talk to the local bridge, not directly to NetEase from the renderer.
 
-Product direction:
-
-- Use your own NetEase playlists as the source library.
-- Distill long-term listening history into mood, scene, and station signals.
-- Let the desktop app talk only to your own bridge, not directly to NetEase from the renderer.
-
-What to fill:
+Fill:
 
 - `COSIC_MUSIC_PROVIDER=netease`
-- `COSIC_MUSIC_BASE_URL`: your own music bridge or proxy URL
-- `COSIC_MUSIC_COOKIE`: your NetEase web session cookie if your bridge uses cookie login
-- `COSIC_MUSIC_API_KEY`: optional if your own bridge expects a separate token
+- `COSIC_MUSIC_BASE_URL=http://127.0.0.1:7878`
+- `COSIC_MUSIC_COOKIE=MUSIC_U=<your_music_u>; __csrf=<your_csrf>`
+- `COSIC_MUSIC_API_KEY=` optional bridge token
 
-Recommended personal flow:
-
-1. Run your own NetEase bridge locally or on a private server.
-2. Point `COSIC_MUSIC_BASE_URL` to that bridge.
-3. Add either `COSIC_MUSIC_COOKIE` or the bridge token it expects.
-4. Use playlists, liked songs, and lyrics as AI radio context inputs.
-5. Keep this for personal use only and watch for cookie expiry or upstream changes.
-
-Recommended minimal bridge endpoints:
+Local bridge endpoints:
 
 - `GET /health`
 - `GET /user/playlists`
 - `GET /playlists/:id`
 - `GET /tracks/:id/stream`
-- `GET /tracks/:id/lyric`
+- `GET /tracks/:id/lyrics`
+- `GET /scores/:workId/:file.pdf`
 
-## Voice / Fish Audio
+Keep the cookie private and rotate it when it expires.
 
-Mode: official API.
+## Voice / CosyVoice
 
-What to do:
+Mode: local FastAPI service.
 
-1. Create an account in Fish Audio.
-2. Generate an API key.
-3. Put the key into `COSIC_VOICE_API_KEY`.
-4. Keep `COSIC_VOICE_BASE_URL=https://api.fish.audio` unless your account uses another endpoint.
-5. Optional: fill `COSIC_VOICE_MODEL` once we wire model selection.
+Fill:
 
-Official docs:
+- `COSIC_VOICE_PROVIDER=cosyvoice`
+- `COSIC_VOICE_BASE_URL=http://127.0.0.1:50000`
+- `COSIC_VOICE_MODE=sft` or `instruct`
+- `COSIC_VOICE_SPK_ID`
+- `COSIC_VOICE_INSTRUCT_TEXT`
 
-- https://docs.fish.audio/api-reference/introduction
-- https://docs.fish.audio/api-reference/authentication
+`npm run dev:all` invokes the local starter script. If you run CosyVoice yourself, keep the base URL pointed at that instance.
 
 ## Calendar / Feishu
 
 Mode: official self-built app.
 
-What to do:
+Fill:
 
-1. Open the Feishu developer console.
-2. Create a self-built app.
-3. Copy the `App ID` into `COSIC_CALENDAR_APP_ID`.
-4. Copy the `App Secret` into `COSIC_CALENDAR_APP_SECRET`.
-5. Grant calendar scopes in the app console.
-6. Our bridge will later use these credentials to obtain `tenant_access_token` and call calendar APIs.
+- `COSIC_CALENDAR_PROVIDER=feishu`
+- `COSIC_CALENDAR_BASE_URL=https://open.feishu.cn/open-apis`
+- `COSIC_CALENDAR_APP_ID`
+- `COSIC_CALENDAR_APP_SECRET`
 
-Official docs:
+Create a Feishu self-built app, grant the calendar scopes you need, and keep the secret in `.env.local` or GitHub Secrets.
 
-- https://open.feishu.cn/app
-- https://open.feishu.cn/document/server-docs/authentication-management/access-token/tenant_access_token_internal
-- https://open.feishu.cn/document/server-docs/calendar-v4/calendar-event/create
+## Weather / Open-Meteo
 
-## Weather / OpenWeather
+Mode: no-key weather provider.
 
-Mode: official API.
+Fill:
 
-What to do:
+- `COSIC_WEATHER_PROVIDER=open-meteo`
 
-1. Create an OpenWeather account.
-2. Generate an API key.
-3. Put the key into `COSIC_WEATHER_API_KEY`.
-4. Keep `COSIC_WEATHER_BASE_URL=https://api.openweathermap.org/data/2.5` for the current weather endpoints we plan to use first.
-
-Official docs:
-
-- https://openweathermap.org/api
-- https://openweathermap.org/appid
-- https://openweathermap.org/current
+No API key is required. The app requests current and forecast weather from Open-Meteo, and uses no-key reverse geocoding fallbacks for city labels.
 
 ## Cast / UPnP
 
 Mode: local-network discovery.
 
-What to do:
+Fill:
 
-1. Set `COSIC_CAST_ENABLED=true`.
-2. Keep player and target renderer on the same LAN.
-3. Optional: fill `COSIC_CAST_DISCOVERY_TARGET` if you want to constrain discovery later.
+- `COSIC_CAST_PROVIDER=upnp`
+- `COSIC_CAST_ENABLED=true`
+- `COSIC_CAST_DISCOVERY_TARGET=` optional
 
-Notes:
-
-- UPnP does not require cloud signup or API keys.
-- The next implementation step is SSDP discovery plus renderer handoff.
-
-Reference:
-
-- https://upnp.org/specs/arch/UPnP-arch-DeviceArchitecture-v2.0.pdf
+UPnP does not require a cloud API key. Keep the player and target renderer on the same LAN.

@@ -7,7 +7,7 @@ const playbackSource = fs.readFileSync('src/renderer/components/PlaybackDeck.tsx
 const llmSource = fs.readFileSync('src/main/bridge/adapters/openai-compatible-llm.ts', 'utf8');
 const cssSource = fs.readFileSync('src/renderer/styles/index.css', 'utf8');
 
-assert.match(appSource, /generateTrackInsight/, 'renderer must request a per-track liner note');
+assert.match(appSource, /generatePlaylistTrackInsights/, 'renderer must prewarm liner notes for the playlist');
 assert.match(playbackSource, /trackInsight/, 'playback deck must accept track insight copy');
 assert.match(playbackSource, /deck-liner-note/, 'playback deck must render a dedicated track liner note');
 assert.match(curatorSource, /visibleMessages/, 'chat console must limit visible narration');

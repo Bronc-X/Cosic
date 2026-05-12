@@ -1,215 +1,146 @@
 # Cosic API Connection Guide
 
-## 1. Goal
+Cosic is wired around a main-process bridge. The renderer never receives provider secrets directly.
 
-The app is now ready to move from UI-first mock mode into real provider wiring.
+## Current Provider Order
 
-The correct implementation order is:
+1. Local music bridge
+2. OpenAI-compatible LLM
+3. Local CosyVoice narration
+4. Open-Meteo weather
+5. Feishu calendar
+6. UPnP cast
 
-1. NetEase music bridge
-2. LLM curation stability
-3. Voice
-4. Calendar
-5. Weather
-6. Cast
+Music comes first because the library is the candidate pool for AI radio.
 
-Music must go first because it is the source library for the whole product.
+## Already Wired
 
-## 2. What is already wired in the app
+The desktop app supports:
 
-The desktop app already supports:
-
-- bridge readiness state for `music / voice / calendar / weather / cast`
-- live LLM probe for the `brain` capability
-- curated playlist generation via the local bridge
-- switching the queue from base library to generated playlist
+- provider readiness checks
+- live NetEase playlist loading through the local bridge
+- playable stream resolution
+- synced lyrics
+- cached classical score PDFs through the bridge
+- AI conversation versus playlist classification
+- AI playlist generation from real candidates
+- batch track-note prewarming
+- local narration audio generation
+- Open-Meteo weather and reverse geocoded city labels
 
 Relevant files:
 
-- [bridge.ts](/C:/Users/Administrator/Desktop/Toni/Cosic/src/shared/contracts/bridge.ts)
-- [bridge-service.ts](/C:/Users/Administrator/Desktop/Toni/Cosic/src/main/bridge/bridge-service.ts)
-- [openai-compatible-llm.ts](/C:/Users/Administrator/Desktop/Toni/Cosic/src/main/bridge/adapters/openai-compatible-llm.ts)
-- [bridge-provider-setup.md](/C:/Users/Administrator/Desktop/Toni/Cosic/docs/bridge-provider-setup.md)
-- [final-product-architecture.md](/C:/Users/Administrator/Desktop/Toni/Cosic/docs/final-product-architecture.md)
+- `src/shared/contracts/bridge.ts`
+- `src/main/bridge/bridge-service.ts`
+- `src/main/bridge/adapters/local-music-bridge.ts`
+- `src/main/bridge/adapters/openai-compatible-llm.ts`
+- `src/main/bridge/adapters/cosyvoice-adapter.ts`
+- `local-bridge/music-bridge.mjs`
+- `docs/bridge-provider-setup.md`
 
-## 3. Environment variables
+## Music Bridge
 
-### Music bridge
+Environment:
 
 ```dotenv
 COSIC_MUSIC_PROVIDER=netease
 COSIC_MUSIC_BASE_URL=http://127.0.0.1:7878
-COSIC_MUSIC_COOKIE=
+COSIC_MUSIC_COOKIE=MUSIC_U=<your_music_u>; __csrf=<your_csrf>
 COSIC_MUSIC_API_KEY=
 ```
 
-Use one of these auth patterns:
-
-- `COSIC_MUSIC_COOKIE`
-- `COSIC_MUSIC_API_KEY`
-
-Do not put NetEase cookie in the renderer.
-
-### LLM
-
-```dotenv
-COSIC_LLM_BASE_URL=https://testvideo.site/v1
-COSIC_LLM_API_KEY=your_key
-COSIC_LLM_MODEL=gpt-5.4
-```
-
-## 4. NetEase bridge: what you should implement first
-
-Run a local service first.
-
-Recommended local address:
-
-```txt
-http://127.0.0.1:7878
-```
-
-### Minimum endpoints
+Implemented local endpoints:
 
 - `GET /health`
-- `GET /user/library`
 - `GET /user/playlists`
 - `GET /playlists/:id`
-- `GET /tracks/:id`
-- `GET /tracks/:id/lyric`
+- `GET /check/music?id=:id`
+- `GET /search/tracks?q=:query`
+- `GET /search/playlists?q=:query`
+- `GET /artwork?url=:encodedUrl`
+- `GET /artwork/fallback?seed=:seed`
+- `GET /scores/:workId/:file.pdf`
 - `GET /tracks/:id/stream`
+- `GET /tracks/:id/lyrics`
+- `GET /tracks/:id/audio`
 
-### Suggested response shapes
+The app needs:
 
-#### `GET /health`
+1. playlists
+2. track metadata
+3. playable stream URLs
+4. lyrics when available
+5. cached score PDFs for classical works
 
-```json
-{
-  "ok": true,
-  "provider": "netease",
-  "authMode": "cookie"
-}
+## LLM
+
+Environment:
+
+```dotenv
+COSIC_LLM_BASE_URL=https://api.openai.com/v1
+COSIC_LLM_API_KEY=your_key
+COSIC_LLM_MODEL=gpt-5.5
+COSIC_LLM_PROXY_URL=
 ```
 
-#### `GET /user/playlists`
+The adapter expects OpenAI-compatible chat completions.
+
+Playlist planning returns normalized JSON. The bridge accepts common aliases but ultimately needs:
 
 ```json
 {
-  "items": [
-    {
-      "id": "pl_001",
-      "name": "深夜工作",
-      "trackCount": 128,
-      "coverUrl": "https://...",
-      "updatedAt": "2026-04-22T06:00:00.000Z"
-    }
-  ]
-}
-```
-
-#### `GET /playlists/:id`
-
-```json
-{
-  "id": "pl_001",
-  "name": "深夜工作",
-  "description": "我的工作歌单",
-  "tracks": [
-    {
-      "id": "t_001",
-      "title": "Track Title",
-      "artist": "Artist Name",
-      "album": "Album Name",
-      "duration": 233,
-      "year": "2024",
-      "coverUrl": "https://..."
-    }
-  ]
-}
-```
-
-#### `GET /tracks/:id/lyric`
-
-```json
-{
-  "trackId": "t_001",
-  "lyric": "....",
-  "translatedLyric": ""
-}
-```
-
-#### `GET /tracks/:id/stream`
-
-```json
-{
-  "trackId": "t_001",
-  "url": "https://...",
-  "expiresAt": "2026-04-22T08:00:00.000Z"
-}
-```
-
-## 5. What the app needs from the music bridge
-
-The app does not need the full NetEase world first.
-
-It needs only three things:
-
-1. Your playlists
-2. Track metadata
-3. Playable stream URLs
-
-That is enough for:
-
-- library sync
-- candidate pool building
-- LLM curation
-- direct playback
-
-Lyrics are the next-highest-value extra because they improve curation and future voice features.
-
-## 6. LLM curation contract
-
-The current app already calls OpenAI-compatible chat completions for curation.
-
-The model is expected to return JSON shaped like this:
-
-```json
-{
-  "title": "稳定推进，保持清醒",
-  "intent": "deep focus",
-  "note": "前段稳态推进，中段维持专注，尾段避免疲劳塌陷。",
-  "trackIds": ["t_12", "t_18", "t_44", "t_03"]
+  "title": "Stable forward motion",
+  "reply": "I kept the opening steady and let the middle breathe.",
+  "trackIds": ["track_12", "track_18", "track_44"]
 }
 ```
 
 Rules:
 
-- choose only from provided tracks
-- return ordered `trackIds`
-- keep `note` short
+- choose from provided candidates whenever possible
+- return 15 to 50 tracks for normal radio requests
+- keep conversation replies separate from playlist intent
+- do not return source-less invented tracks when hydration fails
 
-## 7. Voice / Fish Audio
+## Image Generation
 
-Fill:
+Environment:
 
 ```dotenv
-COSIC_VOICE_PROVIDER=fish-audio
-COSIC_VOICE_BASE_URL=https://api.fish.audio
-COSIC_VOICE_API_KEY=
-COSIC_VOICE_MODEL=
+COSIC_IMAGE_BASE_URL=https://api.openai.com/v1
+COSIC_IMAGE_API_KEY=your_key
+COSIC_IMAGE_MODEL=gpt-image-1.5
 ```
 
-Official docs:
+The image adapter is used by the design reference panel.
 
-- [Fish Audio API Introduction](https://docs.fish.audio/api-reference/introduction)
+## Voice / CosyVoice
 
-What matters for us first:
+Environment:
 
-- one TTS endpoint
-- one voice or model id
+```dotenv
+COSIC_VOICE_PROVIDER=cosyvoice
+COSIC_VOICE_BASE_URL=http://127.0.0.1:50000
+COSIC_VOICE_MODE=sft
+COSIC_VOICE_SPK_ID=中文女
+COSIC_VOICE_INSTRUCT_TEXT=用温柔、自然、克制的电台旁白语气朗读。
+```
 
-## 8. Calendar / Feishu
+Cosic expects a local CosyVoice FastAPI server. Generated raw PCM is wrapped as WAV before playback.
 
-Fill:
+## Weather / Open-Meteo
+
+Environment:
+
+```dotenv
+COSIC_WEATHER_PROVIDER=open-meteo
+```
+
+No weather API key is needed. The adapter requests current weather and forecast metrics from Open-Meteo.
+
+## Calendar / Feishu
+
+Environment:
 
 ```dotenv
 COSIC_CALENDAR_PROVIDER=feishu
@@ -218,57 +149,16 @@ COSIC_CALENDAR_APP_ID=
 COSIC_CALENDAR_APP_SECRET=
 ```
 
-Official docs:
+Use a Feishu self-built app and store the app secret outside git.
 
-- [Feishu tenant_access_token](https://open.feishu.cn/document/server-docs/authentication-management/access-token/tenant_access_token_internal)
+## Cast / UPnP
 
-What matters for us first:
-
-- get `tenant_access_token`
-- fetch today's events
-
-## 9. Weather / OpenWeather
-
-Fill:
-
-```dotenv
-COSIC_WEATHER_PROVIDER=openweather
-COSIC_WEATHER_BASE_URL=https://api.openweathermap.org/data/2.5
-COSIC_WEATHER_API_KEY=
-```
-
-Official docs:
-
-- [OpenWeather API key guide](https://openweathermap.org/appid)
-
-What matters for us first:
-
-- current weather by coordinates or city
-
-## 10. Cast / UPnP
-
-Fill:
+Environment:
 
 ```dotenv
 COSIC_CAST_PROVIDER=upnp
-COSIC_CAST_ENABLED=true
+COSIC_CAST_ENABLED=false
 COSIC_CAST_DISCOVERY_TARGET=
 ```
 
-What matters for us first:
-
-- discover renderer on LAN
-- optional handoff later
-
-## 11. What you should give me next
-
-If you want me to wire the real music adapter next, send me one of these:
-
-1. Your music bridge base URL plus auth mode
-2. A sample JSON for:
-   - `GET /user/playlists`
-   - `GET /playlists/:id`
-   - `GET /tracks/:id/stream`
-3. Or the bridge repo path if it already exists locally
-
-Once I have that, I can start replacing the mock music flow with the real bridge flow.
+UPnP is local-network only and does not need a cloud key.

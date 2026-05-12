@@ -11,8 +11,12 @@ import type {
   Track,
   TrackInsight
 } from '../../../shared/contracts/bridge';
+import { buildLocalTrackNote } from '../../../shared/track-notes';
 
 const nowIso = () => new Date().toISOString();
+
+const PLAYLIST_MIN_TRACKS = 15;
+const PLAYLIST_MAX_TRACKS = 50;
 
 const capabilityTemplates: Record<
   BridgeCapabilityId,
@@ -35,7 +39,7 @@ const capabilityTemplates: Record<
   voice: {
     id: 'voice',
     label: 'Voice Synth',
-    provider: 'Fish Audio-ready',
+    provider: 'CosyVoice-ready',
     summary: 'Voice intro, spoken id and narration.',
     status: 'mock'
   },
@@ -217,7 +221,7 @@ export class MockBridgeAdapter {
 
     return {
       trackId: track.id,
-      text: `《${track.title}》把 ${track.mood} 的底色压在 ${track.tags.slice(0, 2).join(' / ')} 里，${track.artist} 让这一段听起来更像一张私人的唱片内页。`,
+      text: buildLocalTrackNote(track),
       source: 'mock',
       model: 'mock-brain',
       generatedAt
@@ -243,7 +247,10 @@ export class MockBridgeAdapter {
       .sort((left, right) => right.score - left.score)
       .map((entry) => entry.track);
 
-    const selected = rankedTracks.slice(0, Math.min(6, rankedTracks.length));
+    const selected = rankedTracks.slice(
+      0,
+      Math.min(PLAYLIST_MAX_TRACKS, Math.max(PLAYLIST_MIN_TRACKS, rankedTracks.length))
+    );
     const dailySummary =
       requestKind === 'daily' && options?.dailyBrief
         ? [

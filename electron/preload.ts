@@ -4,12 +4,17 @@ import type {
   BridgeSnapshot,
   BootstrapPayload,
   CapabilityProbeResult,
+  ClassicalCoverageReport,
   CurationRequest,
   CuratedPlaylist,
   CosicDesktopApi,
+  DesignReferenceImage,
+  DesignReferenceRequest,
   DailyStationBrief,
   LibraryLoadResult,
   MusicTasteProfile,
+  NarrationAudio,
+  AgentTurnResponse,
   TrackInsight,
   TrackLyrics,
   WindowState
@@ -19,6 +24,8 @@ const desktopApi: CosicDesktopApi = {
   getBootstrap: () => ipcRenderer.invoke('cosic:get-bootstrap') as Promise<BootstrapPayload>,
   loadLibraryPlaylist: (playlistId: string) =>
     ipcRenderer.invoke('cosic:load-library-playlist', playlistId) as Promise<LibraryLoadResult>,
+  getClassicalCoverageReport: () =>
+    ipcRenderer.invoke('cosic:get-classical-coverage-report') as Promise<ClassicalCoverageReport>,
   analyzeMusicTaste: () => ipcRenderer.invoke('cosic:analyze-music-taste') as Promise<MusicTasteProfile>,
   getDailyStationBrief: (context) =>
     ipcRenderer.invoke('cosic:get-daily-station-brief', context) as Promise<DailyStationBrief>,
@@ -31,6 +38,14 @@ const desktopApi: CosicDesktopApi = {
     ipcRenderer.invoke('cosic:ping-capability', capabilityId) as Promise<CapabilityProbeResult>,
   generateTrackInsight: (trackId: string) =>
     ipcRenderer.invoke('cosic:generate-track-insight', trackId) as Promise<TrackInsight>,
+  generatePlaylistTrackInsights: (trackIds: string[]) =>
+    ipcRenderer.invoke('cosic:generate-playlist-track-insights', trackIds) as Promise<TrackInsight[]>,
+  generateNarrationAudio: (text: string) =>
+    ipcRenderer.invoke('cosic:generate-narration-audio', text) as Promise<NarrationAudio>,
+  handleAgentTurn: (request: CurationRequest) =>
+    ipcRenderer.invoke('cosic:handle-agent-turn', request) as Promise<AgentTurnResponse>,
+  generateDesignReference: (request: DesignReferenceRequest) =>
+    ipcRenderer.invoke('cosic:generate-design-reference', request) as Promise<DesignReferenceImage>,
   generateCuratedPlaylist: (request: CurationRequest) =>
     ipcRenderer.invoke('cosic:generate-curated-playlist', request) as Promise<CuratedPlaylist>,
   minimizeWindow: () => ipcRenderer.invoke('cosic:window-minimize') as Promise<void>,
