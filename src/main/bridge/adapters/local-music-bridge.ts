@@ -332,7 +332,8 @@ export class LocalMusicBridgeAdapter {
   async loadPlaylist(
     playlistId: string,
     limit = BOOTSTRAP_TRACK_LIMIT,
-    accountLabel = this.lastAccountLabel
+    accountLabel = this.lastAccountLabel,
+    options: { verifyPlayable?: boolean } = {}
   ): Promise<MusicBootstrapResult | null> {
     if (!this.isConfigured()) {
       return null;
@@ -340,6 +341,23 @@ export class LocalMusicBridgeAdapter {
 
     const trackLimit = clampPlaylistTrackLimit(limit);
     const detail = await this.request<MusicBridgePlaylistDetail>(`/playlists/${playlistId}`);
+    if (options.verifyPlayable === false) {
+      const tracks = clampTracks(detail.tracks, trackLimit).map((track) =>
+        this.toTrack(track, detail.name, '')
+      );
+
+      if (!tracks.length) {
+        return null;
+      }
+
+      return {
+        accountLabel,
+        playlistId: detail.id,
+        playlistName: detail.name,
+        tracks: shuffleTracks(tracks)
+      };
+    }
+
     const scanLimit = Math.min(detail.tracks.length, Math.max(trackLimit * PLAYABLE_SCAN_MULTIPLIER, 36));
     const hydrated = await this.collectPlayablePlaylistTracks(detail, trackLimit, scanLimit);
 

@@ -1120,6 +1120,11 @@ export class OpenAiCompatibleLlmAdapter {
       selectedTracks = [...selectedTracks, ...fallbackTracks].slice(0, targetTrackCount);
     }
 
+    if (selectedTracks.length === 0 && tracks.length > 0) {
+      parsed = buildLocalCuratedPlaylistPlan(requestKind, tracks, options?.specificArtistRequest);
+      selectedTracks = selectFallbackCuratedTracks(tracks, options?.specificArtistRequest);
+    }
+
     if (selectedTracks.length === 0) {
       throw new Error('LLM returned no valid track ids.');
     }

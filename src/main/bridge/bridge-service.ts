@@ -103,6 +103,11 @@ const DAILY_CURATION_CONTEXT_TIMEOUT_MS = 4500;
 const DAILY_CURATION_DISCOVERY_TIMEOUT_MS = 5000;
 const MANUAL_CURATION_LLM_CANDIDATE_LIMIT = 36;
 const AGENT_CLASSIFICATION_TIMEOUT_MS = 6000;
+const shouldUseTasteProfileForManualCuration = () =>
+  process.env.COSIC_MANUAL_CURATION_USE_TASTE_PROFILE === 'true';
+const shouldUseDiscoveryForManualCuration = () =>
+  process.env.COSIC_MANUAL_CURATION_USE_DISCOVERY === 'true';
+const readDefaultPlaylistId = () => process.env.COSIC_DEFAULT_PLAYLIST_ID?.trim() || '';
 const AGENT_PLAYLIST_HINTS = [
   '推荐',
   '歌单',
@@ -208,6 +213,24 @@ const shuffleLibraryPlaylists = (playlists: LibraryPlaylist[]) => {
   }
 
   return shuffled;
+};
+
+const prioritizeBootstrapPlaylists = (playlists: LibraryPlaylist[]) => {
+  const defaultPlaylistId = readDefaultPlaylistId();
+  const candidates = playlists.filter((playlist) => playlist.trackCount > 0);
+  const preferred = defaultPlaylistId
+    ? candidates.filter((playlist) => playlist.id === defaultPlaylistId)
+    : [];
+  const remaining = candidates
+    .filter((playlist) => playlist.id !== defaultPlaylistId)
+    .sort(
+      (left, right) =>
+        Math.abs(left.trackCount - 48) - Math.abs(right.trackCount - 48) ||
+        left.trackCount - right.trackCount ||
+        left.name.localeCompare(right.name)
+    );
+
+  return [...preferred, ...remaining];
 };
 
 const tokenize = (value: string) =>
@@ -1103,13 +1126,17 @@ export class BridgeService {
     const conversationText = buildConversationSearchText(prompt, chatHistory);
     const specificArtistRequest = parseSpecificArtistRequest(prompt, chatHistory);
     const requestKind = request.context?.requestKind ?? 'manual';
-    const tasteProfilePromise = this.lastTasteProfile
-      ? Promise.resolve(this.lastTasteProfile)
-      : withTimeout(
-          this.analyzeMusicTaste(),
-          requestKind === 'daily' ? DAILY_CURATION_CONTEXT_TIMEOUT_MS : MANUAL_CURATION_TASTE_TIMEOUT_MS,
-          'music taste analysis'
-        ).catch(() => this.createMockTasteProfile());
+    const useTasteProfile =
+      requestKind === 'daily' || this.lastTasteProfile || shouldUseTasteProfileForManualCuration();
+    const tasteProfilePromise = useTasteProfile
+      ? this.lastTasteProfile
+        ? Promise.resolve(this.lastTasteProfile)
+        : withTimeout(
+            this.analyzeMusicTaste(),
+            requestKind === 'daily' ? DAILY_CURATION_CONTEXT_TIMEOUT_MS : MANUAL_CURATION_TASTE_TIMEOUT_MS,
+            'music taste analysis'
+          ).catch(() => this.createMockTasteProfile())
+      : Promise.resolve(this.createMockTasteProfile());
     const dailyBriefPromise =
       requestKind === 'daily'
         ? withTimeout(this.getDailyStationBrief(request.context), DAILY_CURATION_CONTEXT_TIMEOUT_MS, 'daily brief').catch(
@@ -1124,9 +1151,12 @@ export class BridgeService {
       discovery = { queries: [specificArtistRequest.artist], tracks: [] };
       candidateTracks = await this.getArtistFocusedTrackPool(specificArtistRequest, conversationText);
     } else {
+      const useManualDiscovery = requestKind !== 'manual' || shouldUseDiscoveryForManualCuration();
       const [primaryTracks, discoveredTracks] = await Promise.all([
-        this.getCurationTrackPool(conversationText),
-        this.getDiscoveryTracks(conversationText, tasteProfile)
+        this.getCurationTrackPool(conversationText, { verifyPlayable: requestKind !== 'manual' }),
+        useManualDiscovery
+          ? this.getDiscoveryTracks(conversationText, tasteProfile)
+          : Promise.resolve({ queries: [], tracks: [] })
       ]);
       discovery = discoveredTracks;
       candidateTracks = this.mergeCandidateTracks(primaryTracks, discovery.tracks);
@@ -1142,6 +1172,9 @@ export class BridgeService {
       maxPerArtist: specificArtistRequest ? Number.POSITIVE_INFINITY : 2,
       maxPerAlbum: specificArtistRequest ? Number.POSITIVE_INFINITY : 2
     }).map((track) => this.enrichTrackWithClassicalScores(track));
+    if (requestKind === 'manual' && candidateTracks.length < CURATED_PLAYLIST_MIN_TRACKS && this.lastKnownTracks.length > 0) {
+      candidateTracks = this.enrichClassicalTracks(this.lastKnownTracks).slice(0, CURATED_PLAYLIST_MAX_TRACKS);
+    }
 
     if (!specificArtistRequest && isClassicalRequest(conversationText)) {
       candidateTracks = this.removeScorelessClassicalTracks(candidateTracks);
@@ -1405,11 +1438,13 @@ export class BridgeService {
       const playlists = await this.getLibraryPlaylists(true);
       const playlistCandidates = playlistId
         ? [playlistId]
-        : shuffleLibraryPlaylists(playlists).map((item) => item.id);
+        : prioritizeBootstrapPlaylists(playlists).map((item) => item.id);
 
       for (const candidateId of playlistCandidates.slice(0, 10)) {
         try {
-          const result = await this.musicAdapter.loadPlaylist(candidateId);
+          const result = await this.musicAdapter.loadPlaylist(candidateId, undefined, undefined, {
+            verifyPlayable: Boolean(playlistId)
+          });
           if (result?.tracks.length) {
             return result;
           }
@@ -1894,7 +1929,8 @@ export class BridgeService {
       options?.requireCompleteClassicalScores
         ? this.removeScorelessClassicalTracks(tracks)
         : this.enrichClassicalTracks(tracks);
-    const needsHydration = normalizedTracks.some((track) => !track.source);
+    const needsHydration =
+      playlist.requestKind !== 'manual' && normalizedTracks.some((track) => !track.source);
 
     if (!needsHydration) {
       return {
