@@ -172,7 +172,7 @@ assert.doesNotMatch(bridgeSource, /maxTracks:\s*12/, 'curated playlists must not
 assert.match(appSource, /返回 15 到 50 首/, 'night radio queues must use the same 15 to 50 track range');
 assert.match(curatorSource, /playlistTracks\.slice\(0,\s*50\)/, 'library playlist previews must show up to 50 tracks');
 assert.doesNotMatch(curatorSource, /playlistTracks\.slice\(0,\s*14\)/, 'library playlist previews must not hide tracks before the 15-track floor');
-assert.match(bridgeSource, /for \(const candidateId of playlistCandidates[\s\S]*try \{[\s\S]*loadPlaylist\(candidateId\)[\s\S]*catch \{[\s\S]*if \(playlistId\)/, 'random library loading must skip broken playlist candidates instead of aborting the whole search');
+assert.match(bridgeSource, /for \(const candidateId of playlistCandidates[\s\S]*try \{[\s\S]*loadPlaylist\(\s*candidateId[\s\S]*verifyPlayable:\s*Boolean\(playlistId\)[\s\S]*catch \{[\s\S]*if \(playlistId\)/, 'random library loading must skip broken playlist candidates instead of aborting the whole search');
 assert.doesNotMatch(bridgeSource, /this\.activePlaylistId,[\s\S]*?sort\(\(left,\s*right\)\s*=>\s*right\.trackCount/, 'bootstrap must not always prefer the previous or largest playlist on entry');
 assert.doesNotMatch(queueRailSource, /AI STACK|ORIGIN|queueLabel|queueMeta/, 'left playlist panel must not mirror current queue state');
 assert.match(curatorSource, /playlistTracks|playlist-preview-list/, 'right panel must show the selected random playlist track list');

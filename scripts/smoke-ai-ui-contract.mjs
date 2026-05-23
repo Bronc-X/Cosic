@@ -89,7 +89,7 @@ assert.doesNotMatch(
 );
 assert.match(
   bridgeSource,
-  /Promise\.all\(\[\s*this\.getCurationTrackPool\(conversationText\),\s*this\.getDiscoveryTracks\(conversationText, tasteProfile\)/,
+  /const \[primaryTracks, discoveredTracks\] = await Promise\.all\(\[[\s\S]*this\.getCurationTrackPool\(\s*conversationText[\s\S]*verifyPlayable:\s*requestKind !== 'manual'[\s\S]*this\.getDiscoveryTracks\(\s*conversationText,\s*tasteProfile\s*\)[\s\S]*\]\);[\s\S]*candidateTracks = this\.mergeCandidateTracks\(primaryTracks, discovery\.tracks\)/,
   'normal curation must fetch local candidates and external discovery in parallel before LLM playlist requests'
 );
 assert.match(
