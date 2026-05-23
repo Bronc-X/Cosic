@@ -23,6 +23,7 @@
     "test:current-ui": "node scripts/smoke-current-ui-requirements.mjs",
     "test:llm-json-repair": "npm run build:electron && node scripts/smoke-llm-json-repair.mjs",
     "test:smoke": "npm run test:package-config && npm run test:ui-copy-layout && npm run test:ai-ui-contract && npm run test:classical-coverage && npm run test:layout-composition && npm run test:current-ui && npm run test:llm-json-repair",
+    "test:baseline": "npm run verify",
     "verify": "npm run typecheck && npm run test:smoke",
     "build:renderer": "vite build",
     "build:electron": "tsc -p tsconfig.electron.json",

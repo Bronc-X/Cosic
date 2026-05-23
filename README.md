@@ -78,9 +78,16 @@ npm run dev              # app stack without starting the music bridge
 npm run music:bridge     # local NetEase bridge only
 npm run typecheck        # TypeScript checks
 npm run test:smoke       # repository smoke suite
+npm run test:baseline    # regression baseline: typecheck + smoke suite
 npm run build            # renderer and Electron build
 npm run package          # electron-builder package, publish disabled
 ```
+
+## Regression Baseline
+
+`npm run test:baseline` is the repository regression baseline. Run it before and after future behavior changes so TypeScript, package config, UI copy/layout, AI UI contract, classical coverage, layout composition, current UI requirements, and LLM JSON repair behavior stay protected.
+
+A useful release checkpoint tag format is `baseline-YYYY-MM-DD-tested`.
 
 ## Classical Scores
 
