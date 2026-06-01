@@ -294,16 +294,18 @@ export function DailyBriefPanel({ dailyBrief, currentClock }: DailyBriefPanelPro
 
   return (
     <aside className={`daily-brief-card weather-cinema-panel is-${realWeatherKind} ${isDetailsOpen ? 'is-open' : ''}`}>
-      <button
-        className="weather-mini-trigger no-drag"
-        type="button"
-        aria-expanded={isDetailsOpen}
-        onClick={() => setIsDetailsOpen((value) => !value)}
-      >
-        <span className="weather-mini-label">WEATHER</span>
-        <strong>{weatherLabel}</strong>
-        <small>{regionLabel}</small>
-      </button>
+      {!isDetailsOpen ? (
+        <button
+          className="weather-mini-trigger no-drag"
+          type="button"
+          aria-expanded={isDetailsOpen}
+          onClick={() => setIsDetailsOpen((value) => !value)}
+        >
+          <span className="weather-mini-label">WEATHER</span>
+          <strong>{weatherLabel}</strong>
+          <small>{regionLabel}</small>
+        </button>
+      ) : null}
 
       {isDetailsOpen ? (
         <>

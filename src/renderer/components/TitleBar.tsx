@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { WindowPlatform, WindowState } from '../../shared/contracts/bridge';
 import { CosicLogoMark } from './CosicLogoMark';
 
@@ -7,6 +8,7 @@ interface TitleBarProps {
   windowState: WindowState;
   isRadioUnlocked: boolean;
   themeMode: ThemeMode;
+  weatherControl?: ReactNode;
   onToggleTheme: () => void;
   onOpenRadioMode: () => void;
   onMinimize: () => void;
@@ -68,6 +70,7 @@ export function TitleBar({
   windowState,
   isRadioUnlocked,
   themeMode,
+  weatherControl,
   onToggleTheme,
   onOpenRadioMode,
   onMinimize,
@@ -106,6 +109,7 @@ export function TitleBar({
       </div>
 
       <div className="titlebar-actions">
+        {weatherControl ? <div className="titlebar-weather-slot">{weatherControl}</div> : null}
         <button
           className={`theme-toggle-button no-drag is-${themeMode}`}
           type="button"

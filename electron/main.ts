@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { app, BrowserWindow, ipcMain, session } from 'electron';
 import type { WindowPlatform, WindowState } from '../src/shared/contracts/bridge';
@@ -21,6 +22,9 @@ loadRuntimeEnv();
 const bridgeService = new BridgeService();
 
 let mainWindow: BrowserWindow | null = null;
+const DEFAULT_RENDERER_PORT = '5173';
+const COSIC_RENDERER_SIGNATURE = '<title>Cosic Player</title>';
+const isScreenshotCaptureMode = process.env.COSIC_ELECTRON_CAPTURE_SCREENSHOTS === 'true';
 
 const getPlatform = (): WindowPlatform => {
   if (process.platform === 'darwin') {
@@ -43,17 +47,103 @@ const broadcastWindowState = (window: BrowserWindow) => {
   window.webContents.send('cosic:window-state-changed', createWindowState(window));
 };
 
+const getDevRendererUrl = () => {
+  const configuredUrl = process.env.COSIC_RENDERER_URL?.trim();
+  if (configuredUrl) {
+    return configuredUrl;
+  }
+
+  const configuredPort = process.env.COSIC_RENDERER_PORT?.trim() || DEFAULT_RENDERER_PORT;
+
+  return `http://127.0.0.1:${configuredPort}`;
+};
+
+const isCosicDevRenderer = async (url: string) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 1800);
+
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    const html = await response.text();
+
+    return html.includes(COSIC_RENDERER_SIGNATURE);
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+const wait = (durationMs: number) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, durationMs);
+  });
+
+const waitForRendererState = async (
+  window: BrowserWindow,
+  expression: string,
+  timeoutMs = 15000
+) => {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const isReady = await window.webContents.executeJavaScript(expression, true);
+      if (isReady) {
+        return;
+      }
+    } catch {
+      // The renderer may still be navigating; keep polling until the timeout.
+    }
+
+    await wait(250);
+  }
+
+  throw new Error(`Timed out waiting for renderer state: ${expression}`);
+};
+
+const captureElectronScreenshot = async (window: BrowserWindow, filename: string) => {
+  const screenshotDir = process.env.COSIC_ELECTRON_SCREENSHOT_DIR || path.join(process.cwd(), '.tmp', 'screenshots');
+  fs.mkdirSync(screenshotDir, { recursive: true });
+
+  const image = await window.webContents.capturePage();
+  const screenshotPath = path.join(screenshotDir, filename);
+  fs.writeFileSync(screenshotPath, image.toPNG());
+
+  return screenshotPath;
+};
+
+const runScreenshotCapture = async (window: BrowserWindow) => {
+  window.show();
+  window.focus();
+
+  await waitForRendererState(
+    window,
+    `Boolean(window.cosic && document.querySelector('.app-shell') && document.querySelector('.playback-deck') && document.querySelector('.agent-harness-strip'))`
+  );
+  await window.webContents.executeJavaScript(
+    `document.querySelector('.location-permission-dialog .secondary-action')?.click()`,
+    true
+  );
+  await wait(700);
+  const home = await captureElectronScreenshot(window, 'cosic-electron-ui-upgrade-01-home.png');
+
+  console.log(`[screenshot] ${home}`);
+};
+
 const loadRenderer = async (window: BrowserWindow) => {
   if (app.isPackaged) {
     await window.loadFile(path.join(app.getAppPath(), 'dist', 'index.html'));
     return;
   }
 
-  try {
-    await window.loadURL('http://127.0.0.1:5173');
-  } catch {
-    await window.loadFile(path.join(process.cwd(), 'dist', 'index.html'));
+  const devRendererUrl = getDevRendererUrl();
+  if (await isCosicDevRenderer(devRendererUrl)) {
+    await window.loadURL(devRendererUrl);
+    return;
   }
+
+  await window.loadFile(path.join(process.cwd(), 'dist', 'index.html'));
 };
 
 const createMainWindow = async () => {
@@ -84,6 +174,11 @@ const createMainWindow = async () => {
   window.on('leave-full-screen', () => broadcastWindowState(window));
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   await loadRenderer(window);
+
+  if (isScreenshotCaptureMode) {
+    await runScreenshotCapture(window);
+    app.quit();
+  }
 };
 
 const configurePermissions = () => {

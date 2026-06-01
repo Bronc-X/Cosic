@@ -200,6 +200,11 @@ assert.match(playbackSource, /preferredClassicalScore/, 'classical reader must d
 assert.match(playbackSource, /scoreTabs = classicalScores\.map/, 'classical player UI must render score tabs from real score sources');
 assert.match(playbackSource, /无可靠小提琴改编/, 'classical reader must mark absent violin arrangements as unreliable rather than broken');
 assert.match(playbackSource, /deck-classical-panel/, 'classical tracks must render a dedicated work panel');
-assert.match(curatorSource, /classical-coverage-panel/, 'right panel must expose a classical score coverage surface');
+assert.doesNotMatch(curatorSource, /classical-coverage-panel/, 'right panel must stay focused on agent chat instead of score coverage');
+assert.match(
+  fs.readFileSync('src/renderer/components/QueueRail.tsx', 'utf8'),
+  /classical-coverage-panel/,
+  'left queue rail must expose the classical score coverage surface'
+);
 
 console.log('ai/ui contract smoke passed');

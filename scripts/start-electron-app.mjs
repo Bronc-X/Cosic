@@ -34,6 +34,21 @@ const readPort = (value, fallback) => {
 
 readEnv();
 
+const rendererMarkerPath = path.join(root, '.tmp', 'cosic-renderer-url.json');
+const readRendererMarker = () => {
+  try {
+    const marker = JSON.parse(fs.readFileSync(rendererMarkerPath, 'utf8'));
+    const url = typeof marker.url === 'string' ? marker.url : '';
+
+    return new URL(url);
+  } catch {
+    return new URL('http://127.0.0.1:5173');
+  }
+};
+
+const rendererUrl = readRendererMarker();
+process.env.COSIC_RENDERER_URL = rendererUrl.href.replace(/\/$/, '');
+
 const llmUrl = (() => {
   try {
     return new URL(process.env.COSIC_LLM_BASE_URL || 'http://127.0.0.1:11434/v1');
@@ -48,7 +63,8 @@ const isLocalOllama =
   (llmUrl.port || '11434') === '11434';
 
 const voicePort = readPort(process.env.COSIC_VOICE_BASE_URL || 'http://127.0.0.1:50000', 50000);
-const resources = ['tcp:5173', `tcp:${voicePort}`, 'file:dist-electron/electron/main.js'];
+const rendererPort = rendererUrl.port || '5173';
+const resources = [`tcp:${rendererPort}`, `tcp:${voicePort}`, 'file:dist-electron/electron/main.js'];
 
 if (isLocalOllama) {
   resources.unshift('tcp:11434');

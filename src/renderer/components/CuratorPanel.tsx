@@ -1,11 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import type {
-  ClassicalCoverageReport,
-  ClassicalCoverageReportItem,
-  CuratedPlaylist,
-  MusicTasteProfile,
-  Track
-} from '../../shared/contracts/bridge';
+import type { CuratedPlaylist, MusicTasteProfile } from '../../shared/contracts/bridge';
 
 export interface CuratorMessage {
   id: string;
@@ -21,21 +15,10 @@ interface CuratorPanelProps {
   isGenerating: boolean;
   error: string | null;
   isLibraryView: boolean;
-  activeTrackId: string | null;
-  playlistTitle: string;
-  playlistMeta: string;
-  playlistTracks: Track[];
-  classicalCoverageReport: ClassicalCoverageReport | null;
-  isScanningClassicalCoverage: boolean;
+  queueTrackCount: number;
   layoutMode: 'regular' | 'compact';
   onAnalyzeTaste: () => void;
-  onScanClassicalCoverage: () => void;
-  onGenerateDaily: () => void;
   onSubmit: (input: string, userDisplayText?: string) => void;
-  onSelectCuratedTrack: (index: number) => void;
-  onReplayCuration: () => void;
-  onRemixCuration: (instruction: string) => void;
-  onRestoreLibrary: () => void;
 }
 
 interface RecommendedPlaylistCard {
@@ -43,6 +26,15 @@ interface RecommendedPlaylistCard {
   title: string;
   note: string;
   prompt: string;
+}
+
+interface AgentSessionSnapshot {
+  title: string;
+  detail: string;
+  route: string;
+  queue: string;
+  memory: string;
+  tone: string;
 }
 
 const trimCardText = (value: string, maxLength = 12) => {
@@ -139,46 +131,6 @@ const buildRecommendedPlaylists = (tasteProfile: MusicTasteProfile | null): Reco
   ];
 };
 
-const formatDuration = (duration: number) => {
-  const minutes = Math.floor(duration / 60);
-  const seconds = Math.floor(duration % 60)
-    .toString()
-    .padStart(2, '0');
-
-  return `${minutes}:${seconds}`;
-};
-
-const getCoverageLabel = (item: ClassicalCoverageReportItem) => {
-  if (item.coverage.status === 'covered') {
-    if (item.coverage.missingReason === 'needs_review') {
-      return '可信来源页';
-    }
-
-    return item.coverage.hasOptionalArrangement ? '原谱+改编' : '原谱';
-  }
-
-  if (item.coverage.status === 'partial') {
-    return '待核';
-  }
-
-  return item.matchStatus === 'heuristic' ? '待匹配' : '无可信谱源';
-};
-
-const getCoverageRowClassName = (item: ClassicalCoverageReportItem) =>
-  `classical-coverage-row is-${item.coverage.status}`;
-
-const getCoverageSummary = (report: ClassicalCoverageReport | null) => {
-  if (!report) {
-    return '未扫描';
-  }
-
-  if (report.totalClassicalTracks === 0) {
-    return '未识别到古典作品';
-  }
-
-  return `${report.coveredCount} 首已找到可信谱源，${report.missingCount} 首保留空位`;
-};
-
 export function CuratorPanel({
   messages,
   curation,
@@ -187,68 +139,62 @@ export function CuratorPanel({
   isGenerating,
   error,
   isLibraryView,
-  activeTrackId,
-  playlistTitle,
-  playlistMeta,
-  playlistTracks,
-  classicalCoverageReport,
-  isScanningClassicalCoverage,
+  queueTrackCount,
   layoutMode,
   onAnalyzeTaste,
-  onScanClassicalCoverage,
-  onGenerateDaily,
-  onSubmit,
-  onSelectCuratedTrack,
-  onReplayCuration,
-  onRemixCuration,
-  onRestoreLibrary
+  onSubmit
 }: CuratorPanelProps) {
   const [input, setInput] = useState('');
   const [isTasteExpanded, setIsTasteExpanded] = useState(false);
-  const [isCoverageExpanded, setIsCoverageExpanded] = useState(false);
   const historyEndRef = useRef<HTMLDivElement | null>(null);
   const visibleMessages = messages;
   const personalizedRecommendations = useMemo(() => buildRecommendedPlaylists(tasteProfile), [tasteProfile]);
-  const visibleCoverageItems = useMemo(() => {
-    if (!classicalCoverageReport) {
-      return [];
-    }
-
-    const ranked = [...classicalCoverageReport.items].sort((left, right) => {
-      const statusWeight = { missing: 0, partial: 1, covered: 2 } as const;
-      return (
-        statusWeight[left.coverage.status] - statusWeight[right.coverage.status] ||
-        right.count - left.count ||
-        left.track.title.localeCompare(right.track.title)
-      );
-    });
-
-    return isCoverageExpanded ? ranked : ranked.slice(0, 8);
-  }, [classicalCoverageReport, isCoverageExpanded]);
 
   useEffect(() => {
     historyEndRef.current?.scrollIntoView({ block: 'end' });
   }, [visibleMessages.length, isGenerating]);
 
-  const helperLabel = useMemo(() => {
-    if (error) {
-      return error;
-    }
+  const harnessStateLabel = useMemo(() => {
+    if (error) return '需要处理';
+    if (isGenerating) return '正在编排';
+    if (isAnalyzingTaste) return '读取口味';
+    if (tasteProfile) return '口味已校准';
 
-    if (isAnalyzingTaste) {
-      return '读口味中';
-    }
+    return visibleMessages.length > 1 ? '会话就绪' : '歌库已接入';
+  }, [error, isAnalyzingTaste, isGenerating, tasteProfile, visibleMessages.length]);
+  const agentSnapshot: AgentSessionSnapshot = useMemo(() => {
+    const lastMessage = [...visibleMessages].reverse().find((message) => message.text.trim().length > 0);
+    const route = isLibraryView ? '资料库队列' : curation?.requestKind === 'daily' ? '今日 AI 队列' : 'AI 队列';
+    const memory = tasteProfile ? tasteProfile.archetype : '未读取口味';
+    const queue = curation ? `${curation.tracks.length} 首推荐在列` : `${queueTrackCount} 首当前队列`;
+    const tone = isGenerating
+      ? '生成中'
+      : isAnalyzingTaste
+        ? '读取历史'
+        : tasteProfile
+          ? '可细调'
+          : '可对话';
+    const detail = error || lastMessage?.text || '歌库已接入，可以直接描述此刻想听的状态。';
 
-    if (isGenerating) {
-      return '生成中';
-    }
-
-    if (tasteProfile) {
-      return '已读口味';
-    }
-
-    return '就绪';
-  }, [error, isAnalyzingTaste, isGenerating, tasteProfile]);
+    return {
+      title: harnessStateLabel,
+      detail,
+      route,
+      queue,
+      memory,
+      tone
+    };
+  }, [
+    curation,
+    error,
+    harnessStateLabel,
+    isAnalyzingTaste,
+    isGenerating,
+    isLibraryView,
+    queueTrackCount,
+    tasteProfile,
+    visibleMessages
+  ]);
 
   const submit = (value: string, userDisplayText?: string) => {
     const trimmed = value.trim();
@@ -276,248 +222,107 @@ export function CuratorPanel({
 
   return (
     <section className={`curator-panel panel${layoutMode === 'compact' ? ' is-compact-layout' : ''}`}>
-      <div className="curator-playlist-zone">
-        <div className="curator-head">
-          <div className="curator-titlegroup">
-            <p className="panel-label">歌单</p>
-            <h2>Cosic</h2>
-          </div>
-          <span
-            className={`curator-badge${isGenerating || isAnalyzingTaste ? ' is-live' : ''}${
-              error ? ' is-error' : ''
-            }`}
-          >
-            {helperLabel}
-          </span>
-        </div>
-
-        <article className="classical-coverage-panel" aria-label="古典谱源覆盖">
-          <div className="classical-coverage-head">
+      <section className="chatgpt-chat-shell is-agent-stream" aria-label="Cosic agent stream">
+        <div className="agent-harness-strip" aria-label="Agent session status">
+          <div className="agent-harness-main">
+            <span
+              className={`agent-harness-light${isGenerating || isAnalyzingTaste ? ' is-live' : ''}${
+                error ? ' is-error' : ''
+              }`}
+              aria-hidden="true"
+            />
             <div>
-              <p className="panel-label">古典谱源</p>
-              <strong>{getCoverageSummary(classicalCoverageReport)}</strong>
-            </div>
-            <div className="classical-coverage-actions">
-              <button
-                className="secondary-action"
-                type="button"
-                onClick={onScanClassicalCoverage}
-                disabled={isScanningClassicalCoverage || isGenerating}
-              >
-                {isScanningClassicalCoverage ? '扫描中' : '谱源覆盖'}
-              </button>
-              {classicalCoverageReport?.totalClassicalTracks ? (
-                <button
-                  className="secondary-action"
-                  type="button"
-                  onClick={() => setIsCoverageExpanded((value) => !value)}
-                >
-                  {isCoverageExpanded ? '收起' : '查看缺口'}
-                </button>
-              ) : null}
+              <strong>{agentSnapshot.title}</strong>
+              <small>{agentSnapshot.detail}</small>
             </div>
           </div>
-          {classicalCoverageReport ? (
-            classicalCoverageReport.totalClassicalTracks > 0 ? (
-              <>
-                <div className="classical-coverage-metrics" aria-label="古典谱源统计">
-                  <span>{classicalCoverageReport.coveredCount} 原谱已找到</span>
-                  <span>{classicalCoverageReport.partialCount} 待核</span>
-                  <span>{classicalCoverageReport.missingCount} 留白</span>
-                </div>
-                <div className="classical-coverage-list">
-                  {visibleCoverageItems.map((item) => (
-                    <div key={`${item.track.id}-${item.matchStatus}`} className={getCoverageRowClassName(item)}>
-                      <div>
-                        <strong>{item.track.classical?.note?.workTitle ?? item.track.title}</strong>
-                        <span>
-                          {item.track.classical?.note?.composer ?? item.track.artist}
-                          {item.playlistNames.length > 0 ? ` / ${item.playlistNames.slice(0, 2).join('、')}` : ''}
-                        </span>
-                      </div>
-                      <em>{getCoverageLabel(item)}</em>
-                    </div>
-                  ))}
-                </div>
-                {!isCoverageExpanded && classicalCoverageReport.items.length > visibleCoverageItems.length ? (
-                  <p className="classical-coverage-empty">
-                    还有 {classicalCoverageReport.items.length - visibleCoverageItems.length} 首在完整清单里。留白会被看见，不会被藏起来。
-                  </p>
-                ) : null}
-              </>
-            ) : (
-              <p className="classical-coverage-empty">这张歌单里还没有识别到古典作品。</p>
-            )
-          ) : (
-            <p className="classical-coverage-empty">原谱优先。改编从严。找不到可信版本时，留白比假装完整更好。</p>
-          )}
-        </article>
-
-        {curation ? (
-          <article className="playlist-preview">
-            <div className="playlist-preview-head">
-              <div>
-                <p className="panel-label">{curation.requestKind === 'daily' ? '今日' : '推荐'}</p>
-                <h3>{curation.title}</h3>
-              </div>
-              <div className="playlist-preview-meta">
-                <span>{curation.tracks.length} 首</span>
-              </div>
-            </div>
-
-            <p className="playlist-preview-note">{curation.note}</p>
-
-            <div className="playlist-preview-actions">
-              <button className="secondary-action" type="button" onClick={onReplayCuration} disabled={isGenerating}>
-                重播
-              </button>
-              <button
-                className="secondary-action"
-                type="button"
-                disabled={isGenerating}
-                onClick={() => onRemixCuration('换一版，但不要重复上一版已经出现过的歌和歌手。')}
-              >
-                重做
-              </button>
-              <button
-                className="ghost-action"
-                type="button"
-                disabled={isGenerating}
-                onClick={() => onRemixCuration('更静一点，减少人声起伏和戏剧感。')}
-              >
-                更安静
-              </button>
-              <button
-                className="ghost-action"
-                type="button"
-                disabled={isGenerating}
-                onClick={() => onRemixCuration('更有推进感，但不要更吵。')}
-              >
-                更推进
-              </button>
-            </div>
-
-            <div className="playlist-preview-list">
-              {curation.tracks.map((track, index) => (
-                <button
-                  key={track.id}
-                  className={track.id === activeTrackId ? 'playlist-track-row is-active' : 'playlist-track-row'}
-                  type="button"
-                  onClick={() => onSelectCuratedTrack(index)}
-                >
-                  <span className="playlist-track-index">{String(index + 1).padStart(2, '0')}</span>
-                  <div className="playlist-track-copy">
-                    <strong>{track.title}</strong>
-                    <span>{track.artist}</span>
-                  </div>
-                  <span className="playlist-track-action">{track.id === activeTrackId ? '播中' : '播放'}</span>
-                </button>
-              ))}
-            </div>
-
-            {!isLibraryView ? (
-              <button className="ghost-action" type="button" onClick={onRestoreLibrary}>
-                回到歌单
-              </button>
-            ) : null}
-          </article>
-        ) : playlistTracks.length > 0 ? (
-          <article className="playlist-preview is-library">
-            <div className="playlist-preview-head">
-              <div>
-                <p className="panel-label">歌单</p>
-                <h3>{playlistTitle}</h3>
-              </div>
-              <div className="playlist-preview-meta">
-                <span>{playlistMeta}</span>
-              </div>
-              <button className="primary-action" type="button" onClick={onGenerateDaily} disabled={isGenerating}>
-                今日推荐
-              </button>
-            </div>
-
-            <div className="playlist-preview-list">
-              {playlistTracks.slice(0, 50).map((track, index) => (
-                <button
-                  key={`${track.id}-${index}`}
-                  className={track.id === activeTrackId ? 'playlist-track-row is-active' : 'playlist-track-row'}
-                  type="button"
-                  onClick={() => onSelectCuratedTrack(index)}
-                >
-                  <span className="playlist-track-index">{String(index + 1).padStart(2, '0')}</span>
-                  <div className="playlist-track-copy">
-                    <strong>{track.title}</strong>
-                    <span>{track.artist}</span>
-                  </div>
-                  <span className="playlist-track-action">
-                    {track.id === activeTrackId ? '播中' : formatDuration(track.duration)}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </article>
-        ) : (
-          <article className="playlist-preview is-empty">
-            <div className="playlist-preview-head">
-              <div>
-                <p className="panel-label">歌单</p>
-                <h3>今日歌单</h3>
-              </div>
-              <button className="primary-action" type="button" onClick={onGenerateDaily} disabled={isGenerating}>
-                今日推荐
-              </button>
-            </div>
-          </article>
-        )}
-
-        <div className="recommended-playlists" aria-label="推荐歌单">
-          <div className="recommended-playlists-head">
-            <p className="panel-label">推荐</p>
-            <span>{isGenerating ? '生成中' : '歌单'}</span>
+          <div className="agent-harness-readouts">
+            <span>{agentSnapshot.route}</span>
+            <span>{agentSnapshot.queue}</span>
+            <span>{agentSnapshot.memory}</span>
+            <span>{agentSnapshot.tone}</span>
           </div>
+        </div>
 
-          <div className="recommended-playlist-grid">
-            {personalizedRecommendations.map((playlist) => (
-              <button
-                key={playlist.label}
-                className="recommended-playlist-card"
-                type="button"
-                disabled={isGenerating}
-                onClick={() => submit(playlist.prompt, playlist.title)}
-              >
-                <span>{playlist.label}</span>
-                <strong>{playlist.title}</strong>
-                <small>{playlist.note}</small>
-              </button>
+        <section className="agent-conversation-frame" aria-label="Agent conversation">
+          <div className="chatgpt-message-list">
+            {visibleMessages.map((message) => (
+              <article key={message.id} className={`chatgpt-message is-${message.role}`}>
+                <span className="chatgpt-avatar">{message.role === 'assistant' ? 'C' : '你'}</span>
+                <div className="chatgpt-message-content">
+                  <p>{message.text}</p>
+                </div>
+              </article>
             ))}
-          </div>
-        </div>
-      </div>
-
-      <section className="chatgpt-chat-shell" aria-label="Cosic chat">
-        <div className="chatgpt-message-list">
-          {visibleMessages.map((message) => (
-            <article key={message.id} className={`chatgpt-message is-${message.role}`}>
-              <span className="chatgpt-avatar">{message.role === 'assistant' ? 'C' : '你'}</span>
-              <div className="chatgpt-message-content">
-                <p>{message.text}</p>
-              </div>
-            </article>
-          ))}
-          {isGenerating ? (
-            <article className="chatgpt-message is-assistant is-working" aria-live="polite">
-              <span className="chatgpt-avatar">C</span>
-              <div className="chatgpt-message-content">
-                <div className="chat-working-indicator" aria-label="Cosic 正在工作">
-                  <span />
-                  <span />
-                  <span />
+            {isGenerating ? (
+              <article className="chatgpt-message is-assistant is-working" aria-live="polite">
+                <span className="chatgpt-avatar">C</span>
+                <div className="chatgpt-message-content">
+                  <div className="chat-working-indicator" aria-label="Cosic 正在工作">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
                 </div>
+              </article>
+            ) : null}
+            <div ref={historyEndRef} className="chatgpt-history-end" />
+          </div>
+
+          <form className="curator-form chatgpt-composer" onSubmit={handleSubmit}>
+            <div className="composer-shell">
+              <textarea
+                id="curator-input"
+                className="curator-input"
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={handleComposerKeyDown}
+                rows={2}
+                placeholder="问 Cosic 要一组适合此刻的歌单，或直接描述你现在想听的状态"
+              />
+
+              <div className="curator-form-foot">
+                <div className="composer-actions-left">
+                  <button
+                    className="secondary-action"
+                    type="button"
+                    onClick={onAnalyzeTaste}
+                    disabled={isAnalyzingTaste || isGenerating}
+                  >
+                    {isAnalyzingTaste ? '读取中' : tasteProfile ? '重新读口味' : '读取口味'}
+                  </button>
+
+                  {tasteProfile ? (
+                    <button
+                      className="ghost-action"
+                      type="button"
+                      onClick={() => setIsTasteExpanded((current) => !current)}
+                      disabled={isAnalyzingTaste || isGenerating}
+                    >
+                      {isTasteExpanded ? '收起画像' : '查看画像'}
+                    </button>
+                  ) : null}
+                </div>
+
+                <button
+                  className={isGenerating ? 'primary-action curator-submit is-working' : 'primary-action curator-submit'}
+                  type="submit"
+                  disabled={isGenerating || !input.trim()}
+                  aria-busy={isGenerating}
+                  aria-label={isGenerating ? 'Cosic 正在生成回复' : '发送'}
+                >
+                  {isGenerating ? (
+                    <span className="curator-submit-progress" aria-hidden="true">
+                      <span />
+                    </span>
+                  ) : (
+                    '发送'
+                  )}
+                </button>
               </div>
-            </article>
-          ) : null}
-          <div ref={historyEndRef} className="chatgpt-history-end" />
-        </div>
+            </div>
+          </form>
+        </section>
 
         {tasteProfile && isTasteExpanded ? (
           <article className="taste-profile is-open">
@@ -557,59 +362,28 @@ export function CuratorPanel({
           </article>
         ) : null}
 
-        <form className="curator-form chatgpt-composer" onSubmit={handleSubmit}>
-          <div className="composer-shell">
-            <textarea
-              id="curator-input"
-              className="curator-input"
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={handleComposerKeyDown}
-              rows={2}
-              placeholder="问 Cosic 要一组适合此刻的歌单"
-            />
-
-            <div className="curator-form-foot">
-              <div className="composer-actions-left">
-                <button
-                  className="secondary-action"
-                  type="button"
-                  onClick={onAnalyzeTaste}
-                  disabled={isAnalyzingTaste || isGenerating}
-                >
-                  {isAnalyzingTaste ? '读取中' : tasteProfile ? '重新读口味' : '读取口味'}
-                </button>
-
-                {tasteProfile ? (
-                  <button
-                    className="ghost-action"
-                    type="button"
-                    onClick={() => setIsTasteExpanded((current) => !current)}
-                    disabled={isAnalyzingTaste || isGenerating}
-                  >
-                    {isTasteExpanded ? '收起画像' : '查看画像'}
-                  </button>
-                ) : null}
-              </div>
-
-              <button
-                className={isGenerating ? 'primary-action curator-submit is-working' : 'primary-action curator-submit'}
-                type="submit"
-                disabled={isGenerating || !input.trim()}
-                aria-busy={isGenerating}
-                aria-label={isGenerating ? 'Cosic 正在生成回复' : '发送'}
-              >
-                {isGenerating ? (
-                  <span className="curator-submit-progress" aria-hidden="true">
-                    <span />
-                  </span>
-                ) : (
-                  '发送'
-                )}
-              </button>
-            </div>
+        <div className="recommended-playlists agent-prompt-strip" aria-label="Agent quick prompts">
+          <div className="recommended-playlists-head">
+            <p className="panel-label">Quick Requests</p>
+            <span>{isGenerating ? '生成中' : '快捷请求'}</span>
           </div>
-        </form>
+
+          <div className="recommended-playlist-grid">
+            {personalizedRecommendations.map((playlist) => (
+              <button
+                key={playlist.label}
+                className="recommended-playlist-card"
+                type="button"
+                disabled={isGenerating}
+                onClick={() => submit(playlist.prompt, playlist.title)}
+              >
+                <span>{playlist.label}</span>
+                <strong>{playlist.title}</strong>
+                <small>{playlist.note}</small>
+              </button>
+            ))}
+          </div>
+        </div>
       </section>
     </section>
   );

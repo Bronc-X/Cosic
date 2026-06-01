@@ -480,6 +480,14 @@ input:focus-visible {
   min-width: 0;
 }
 
+.titlebar-weather-slot {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  min-width: 0;
+  -webkit-app-region: no-drag;
+}
+
 .cosic-logo-mark {
   --logo-width: 118px;
   --logo-height: 46px;
@@ -782,6 +790,7 @@ input:focus-visible {
 }
 
 .experience-grid {
+  position: relative;
   min-height: 0;
   height: 100%;
   padding: 10px;
@@ -790,7 +799,7 @@ input:focus-visible {
 .experience-grid.mode-regular {
   display: grid;
   grid-template-columns: minmax(420px, 0.86fr) minmax(560px, 1.14fr);
-  gap: 10px;
+  gap: 8px;
   align-items: stretch;
 }
 
@@ -811,7 +820,7 @@ input:focus-visible {
 .left-console-stack,
 .compact-player-stack {
   display: grid;
-  gap: var(--space-sm);
+  gap: 8px;
   min-height: 0;
 }
 
@@ -2924,19 +2933,6 @@ input:focus-visible {
   line-height: 1.25;
 }
 
-.classical-coverage-head .secondary-action {
-  min-height: 32px;
-  padding: 0 11px;
-  font-size: var(--label);
-}
-
-.classical-coverage-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: end;
-  gap: 8px;
-}
-
 .classical-coverage-metrics {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3132,21 +3128,24 @@ input:focus-visible {
   --weather-accent-soft: rgba(255, 199, 90, 0.2);
   --weather-sky-a: #101a26;
   --weather-sky-b: #0a1018;
-  position: absolute;
-  top: 72px;
-  right: 24px;
+  position: relative;
+  top: auto;
+  right: auto;
   z-index: 20;
   display: grid;
   justify-items: end;
-  width: auto;
+  width: min(168px, calc(100vw - 112px));
+  max-width: 168px;
   min-height: 0;
   padding: 0;
   overflow: visible;
-  border-color: color-mix(in srgb, var(--weather-accent) 36%, rgba(255, 255, 255, 0.14));
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
   isolation: isolate;
+  -webkit-app-region: no-drag;
 }
 
 .weather-cinema-panel::before,
@@ -3222,11 +3221,13 @@ input:focus-visible {
   display: grid;
   grid-template-columns: auto;
   justify-items: end;
-  min-width: 124px;
+  width: 100%;
+  min-width: 0;
   min-height: 42px;
   padding: 7px 10px;
   border: 1px solid var(--border-visible);
   border-radius: 8px;
+  overflow: hidden;
   color: var(--text-display);
   text-align: right;
   background: var(--panel-solid);
@@ -3238,6 +3239,16 @@ input:focus-visible {
     border-color 180ms ease,
     box-shadow 180ms ease,
     transform 180ms ease;
+}
+
+.titlebar-weather-slot .weather-cinema-panel {
+  width: clamp(132px, 11vw, 168px);
+  max-width: clamp(132px, 11vw, 168px);
+}
+
+.titlebar-weather-slot .weather-mini-trigger {
+  min-height: 42px;
+  padding: 6px 10px;
 }
 
 .weather-mini-trigger:hover,
@@ -3264,20 +3275,28 @@ input:focus-visible {
 }
 
 .weather-mini-label {
+  max-width: 100%;
+  overflow: hidden;
   color: var(--text-secondary);
   font-family: 'Space Mono', monospace;
   font-size: 10px;
   letter-spacing: 0.11em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .weather-mini-trigger strong {
+  max-width: 100%;
+  overflow: hidden;
   color: var(--text-display);
   font-size: 0.84rem;
   line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .weather-mini-trigger small {
-  max-width: 14ch;
+  max-width: 100%;
   overflow: hidden;
   color: color-mix(in srgb, var(--text-display) 68%, var(--text-secondary));
   font-size: 0.68rem;
@@ -7157,6 +7176,17 @@ input:focus-visible {
   opacity: 0.1;
 }
 
+.experience-grid::before {
+  content: '';
+  position: absolute;
+  inset: 0 6px;
+  z-index: -1;
+  border-radius: 14px;
+  background: #060708;
+  opacity: 0.72;
+  pointer-events: none;
+}
+
 .cursor-particle-field,
 .playback-deck-ambient,
 .playback-deck-grain,
@@ -7407,5 +7437,1061 @@ input:focus-visible {
   .deck-classical-score-page img,
   .deck-classical-score-page object {
     min-height: 210px;
+  }
+}
+
+/* Broadcast Console pass: player as stage, agent as dispatch console. */
+.playback-deck {
+  border-color: color-mix(in srgb, var(--player-primary) 28%, var(--border-visible));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 20%),
+    radial-gradient(circle at 18% 14%, color-mix(in srgb, var(--player-primary) 16%, transparent), transparent 34%),
+    linear-gradient(135deg, #08090b, #111214 62%, #09090a);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 24px 56px rgba(0, 0, 0, 0.28);
+}
+
+.playback-deck::before {
+  content: '';
+  position: absolute;
+  inset: 10px;
+  z-index: 0;
+  border: 1px solid rgba(255, 255, 255, 0.045);
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+.deck-header,
+.deck-stage,
+.deck-controller,
+.deck-banner {
+  position: relative;
+  z-index: 1;
+}
+
+.deck-stage {
+  grid-template-columns: minmax(176px, 232px) minmax(0, 1fr);
+  gap: clamp(18px, 2.4vw, 34px);
+  align-items: center;
+  padding: clamp(6px, 1vw, 14px) 0;
+}
+
+.deck-art-stack {
+  transform: rotate(-1.4deg);
+}
+
+.deck-art-shell {
+  width: min(232px, 100%);
+  border-radius: 10px;
+  border-color: color-mix(in srgb, var(--player-primary) 34%, var(--border-visible));
+  background: #111;
+  filter: grayscale(0.22) saturate(1.08) contrast(1.04);
+  box-shadow:
+    10px 12px 0 rgba(255, 255, 255, 0.035),
+    0 22px 48px rgba(0, 0, 0, 0.34);
+}
+
+.deck-art-shell::before {
+  content: '';
+  position: absolute;
+  inset: 9px;
+  z-index: 2;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+}
+
+.deck-copy {
+  align-content: center;
+  gap: 14px;
+  overflow: hidden;
+}
+
+.deck-copy h2 {
+  display: -webkit-box;
+  max-width: 13ch;
+  max-height: 2.82em;
+  overflow: hidden;
+  font-size: clamp(2.25rem, min(4.4vw, 6.2vh), 4.25rem);
+  line-height: 0.94;
+  text-wrap: balance;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.deck-eyebrow {
+  width: fit-content;
+  padding-bottom: 5px;
+  border-bottom: 1px solid color-mix(in srgb, var(--player-primary) 46%, var(--border-visible));
+  color: color-mix(in srgb, var(--player-primary) 64%, var(--text-display));
+}
+
+.deck-chip-row {
+  gap: 7px;
+}
+
+.deck-chip {
+  min-height: 26px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.deck-liner-note {
+  position: relative;
+  max-width: none;
+  min-height: 132px;
+  padding: 14px 16px;
+  border-left-color: color-mix(in srgb, var(--player-primary) 66%, var(--accent));
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--player-primary) 8%, transparent), transparent 38%),
+    rgba(255, 255, 255, 0.035);
+}
+
+.deck-liner-note::before {
+  content: 'MONITOR';
+  position: absolute;
+  right: 12px;
+  bottom: 9px;
+  color: rgba(255, 255, 255, 0.08);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.82rem;
+  letter-spacing: 0.18em;
+  pointer-events: none;
+}
+
+.curator-panel {
+  grid-template-rows: minmax(0, 0.52fr) minmax(0, 0.48fr);
+  gap: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 28%),
+    var(--panel-solid);
+}
+
+.curator-playlist-zone {
+  gap: 12px;
+}
+
+.chatgpt-chat-shell {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  padding-top: 12px;
+}
+
+.agent-harness-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-visible);
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(215, 25, 33, 0.09), transparent 38%),
+    rgba(255, 255, 255, 0.034);
+}
+
+.agent-harness-main {
+  display: grid;
+  grid-template-columns: 11px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.agent-harness-main strong,
+.agent-harness-main small,
+.agent-harness-readouts span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-harness-main strong {
+  display: block;
+  color: var(--text-display);
+  font-size: 0.92rem;
+}
+
+.agent-harness-main small {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+}
+
+.agent-harness-light {
+  width: 11px;
+  height: 11px;
+  border: 1px solid var(--border-visible);
+  border-radius: 50%;
+  background: var(--text-secondary);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.03);
+}
+
+.agent-harness-light.is-live {
+  background: var(--accent);
+  box-shadow: 0 0 18px rgba(215, 25, 33, 0.46);
+  animation: harnessLightPulse 1.4s ease-in-out infinite;
+}
+
+.agent-harness-light.is-error {
+  background: #ff6b6b;
+  box-shadow: 0 0 18px rgba(255, 107, 107, 0.46);
+}
+
+.agent-harness-meter {
+  display: grid;
+  grid-template-columns: repeat(3, 22px);
+  gap: 4px;
+}
+
+.agent-harness-meter span {
+  height: 7px;
+  border-radius: 999px;
+  background: var(--border-visible);
+}
+
+.agent-harness-meter span.is-ready {
+  background: color-mix(in srgb, var(--accent) 72%, var(--text-display));
+}
+
+.agent-harness-meter span.is-live {
+  background: var(--text-display);
+  animation: harnessMeterPulse 900ms ease-in-out infinite;
+}
+
+.agent-harness-readouts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 0;
+}
+
+.agent-harness-readouts span {
+  min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.chatgpt-message-list {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.chatgpt-message {
+  padding: 10px 2px;
+}
+
+.chatgpt-message.is-assistant .chatgpt-message-content {
+  color: var(--text-primary);
+}
+
+.chatgpt-message.is-user .chatgpt-message-content {
+  color: var(--text-display);
+}
+
+.chatgpt-composer .composer-shell {
+  border: 1px solid var(--border-visible);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.curator-input {
+  color: var(--text-display);
+}
+
+.curator-input:focus {
+  outline: none;
+}
+
+.chatgpt-composer .composer-shell:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 46%, var(--border-visible));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.recommended-playlists {
+  padding: 12px;
+  border-top: 0;
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.038), transparent 62%),
+    rgba(255, 255, 255, 0.018);
+}
+
+.recommended-playlist-grid {
+  gap: 8px;
+}
+
+.recommended-playlist-card {
+  min-height: 74px;
+  padding: 10px 11px;
+  border-color: var(--border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.026);
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.recommended-playlist-card:hover,
+.recommended-playlist-card:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border-visible));
+  background: rgba(255, 255, 255, 0.058);
+  transform: translateY(-1px);
+}
+
+.playlist-button-grid {
+  grid-template-columns: 1fr;
+  grid-auto-rows: minmax(46px, auto);
+  gap: 6px;
+  overflow: auto;
+}
+
+.playlist-button {
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  align-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 7px 9px 7px 7px;
+  border-radius: 6px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05), transparent 58%),
+    var(--panel-quiet);
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.playlist-button::before {
+  width: 32px;
+  opacity: 0.5;
+  filter: grayscale(0.3) contrast(1.05);
+  mask-image: linear-gradient(90deg, #000 76%, transparent);
+}
+
+.playlist-button::after {
+  inset: 0 auto 0 32px;
+  width: 1px;
+  background: var(--border);
+}
+
+.playlist-button:hover,
+.playlist-button:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--border-visible));
+  transform: translateX(2px);
+}
+
+.playlist-button.is-active {
+  border-color: color-mix(in srgb, var(--accent) 70%, var(--border-visible));
+  background:
+    linear-gradient(90deg, rgba(215, 25, 33, 0.12), transparent 48%),
+    var(--panel-quiet);
+}
+
+.playlist-button-index {
+  position: relative;
+  z-index: 1;
+  color: var(--text-display);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.68rem;
+}
+
+.playlist-button span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playlist-button strong {
+  justify-self: end;
+  color: var(--text-secondary);
+  font-size: 0.62rem;
+}
+
+.weather-detail-backdrop {
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(1.5px);
+}
+
+.weather-cinema-panel.is-open {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.weather-live-card {
+  border-radius: 18px;
+  filter: grayscale(0.24) saturate(0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -58px 80px rgba(0, 0, 0, 0.48),
+    0 24px 64px rgba(0, 0, 0, 0.48);
+}
+
+.weather-close-button {
+  border-radius: 50%;
+}
+
+.weather-card-live-pill,
+.weather-air-pill {
+  border-radius: 4px;
+}
+
+.primary-action,
+.secondary-action,
+.ghost-action,
+.deck-track-button,
+.deck-lyrics-button,
+.deck-tts-button,
+.weather-mini-trigger,
+.weather-close-button {
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease,
+    opacity 160ms ease;
+}
+
+.primary-action:active,
+.secondary-action:active,
+.ghost-action:active,
+.deck-track-button:active,
+.deck-lyrics-button:active,
+.deck-tts-button:active,
+.weather-mini-trigger:active,
+.weather-close-button:active,
+.playlist-button:active,
+.recommended-playlist-card:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+.app-shell.theme-light .playback-deck {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), transparent 28%),
+    radial-gradient(circle at 18% 14%, color-mix(in srgb, var(--player-primary) 13%, transparent), transparent 34%),
+    #f8f5ee;
+}
+
+.app-shell.theme-light .playback-deck::before {
+  border-color: rgba(33, 30, 25, 0.08);
+}
+
+.app-shell.theme-light .deck-art-shell {
+  filter: grayscale(0.08) saturate(0.96) contrast(1.02);
+  box-shadow:
+    10px 12px 0 rgba(35, 31, 24, 0.05),
+    0 20px 44px rgba(64, 54, 38, 0.16);
+}
+
+.app-shell.theme-light .deck-liner-note,
+.app-shell.theme-light .agent-harness-strip,
+.app-shell.theme-light .recommended-playlists,
+.app-shell.theme-light .chatgpt-message-list,
+.app-shell.theme-light .chatgpt-composer .composer-shell {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.app-shell.theme-light .playlist-button,
+.app-shell.theme-light .recommended-playlist-card {
+  background: rgba(255, 255, 255, 0.56);
+}
+
+@keyframes harnessLightPulse {
+  50% {
+    transform: scale(1.28);
+    opacity: 0.68;
+  }
+}
+
+@keyframes harnessMeterPulse {
+  50% {
+    opacity: 0.36;
+  }
+}
+
+@media (max-width: 1320px) {
+  .deck-stage {
+    grid-template-columns: minmax(148px, 188px) minmax(0, 1fr);
+  }
+
+  .deck-art-shell {
+    width: min(188px, 100%);
+  }
+
+  .deck-copy h2 {
+    font-size: clamp(2.1rem, min(4.6vw, 6.2vh), 4.3rem);
+  }
+
+  .agent-harness-strip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .agent-harness-meter {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 720px) {
+  .deck-stage {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .deck-art-stack {
+    transform: none;
+  }
+
+  .deck-art-shell {
+    width: min(172px, 58vw);
+  }
+
+  .deck-copy h2 {
+    max-width: none;
+    font-size: clamp(2rem, 13vw, 3.8rem);
+  }
+
+  .agent-harness-readouts {
+    grid-template-columns: 1fr;
+  }
+
+  .recommended-playlist-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Children's Day polish: remove stray controls, soften right console, tighten chat. */
+.deck-controller {
+  background: transparent !important;
+  box-shadow: none;
+}
+
+.deck-controller-shell {
+  padding: 0;
+}
+
+.deck-transport-row {
+  border-color: color-mix(in srgb, var(--player-primary) 18%, var(--border-visible));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.025)),
+    rgba(255, 255, 255, 0.018);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.075);
+}
+
+.curator-head {
+  grid-template-columns: 1fr;
+}
+
+.curator-panel {
+  border-color: color-mix(in srgb, var(--accent) 12%, var(--border-visible));
+  background:
+    radial-gradient(circle at 12% 18%, color-mix(in srgb, var(--player-primary, var(--accent)) 18%, transparent), transparent 34%),
+    radial-gradient(circle at 88% 8%, color-mix(in srgb, var(--player-accent, var(--accent)) 12%, transparent), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.058), rgba(255, 255, 255, 0.018) 38%, rgba(255, 255, 255, 0.03)),
+    #08090a;
+}
+
+.classical-coverage-panel,
+.playlist-preview,
+.recommended-playlists,
+.chatgpt-chat-shell {
+  border-color: rgba(255, 255, 255, 0.105);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.026)),
+    #101113;
+}
+
+.playlist-preview.is-library {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.018)),
+    #090a0c;
+}
+
+.chatgpt-chat-shell {
+  border: 1px solid color-mix(in srgb, var(--player-primary, #ffffff) 16%, rgba(255, 255, 255, 0.105));
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--player-accent, #ffffff) 10%, transparent),
+    0 0 44px color-mix(in srgb, var(--player-primary, #ffffff) 7%, transparent);
+}
+
+.agent-harness-strip {
+  min-height: 54px;
+  border-color: color-mix(in srgb, var(--player-primary, #ffffff) 22%, rgba(255, 255, 255, 0.14));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--player-primary, var(--accent)) 18%, transparent), transparent 46%),
+    radial-gradient(circle at 94% 18%, color-mix(in srgb, var(--player-accent, var(--accent)) 13%, transparent), transparent 36%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.066), rgba(255, 255, 255, 0.026)),
+    #111316;
+}
+
+.agent-harness-readouts span {
+  border-color: rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.026);
+}
+
+.chatgpt-message-list {
+  align-content: start;
+  padding: 8px 10px;
+  border-color: color-mix(in srgb, var(--player-primary, #ffffff) 14%, rgba(255, 255, 255, 0.11));
+  background:
+    radial-gradient(circle at 2% 8%, color-mix(in srgb, var(--player-primary, var(--accent)) 12%, transparent), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 42%),
+    #0c0d0f;
+}
+
+.chatgpt-message {
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom-color: rgba(255, 255, 255, 0.075);
+}
+
+.chatgpt-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+    #0a0b0d;
+  font-size: 0.72rem;
+}
+
+.chatgpt-message-content {
+  min-width: 0;
+  padding: 8px 10px;
+  border-left: 1px solid transparent;
+  border-radius: 0 7px 7px 0;
+}
+
+.chatgpt-message.is-assistant .chatgpt-message-content {
+  border-left-color: color-mix(in srgb, var(--player-primary, var(--accent)) 68%, var(--border-visible));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--player-primary, var(--accent)) 10%, transparent), transparent 58%);
+}
+
+.chatgpt-message.is-user .chatgpt-message-content {
+  border-left-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.chatgpt-message-content p {
+  line-height: 1.62;
+}
+
+.chatgpt-composer .composer-shell {
+  border-radius: 10px;
+  border-color: color-mix(in srgb, var(--player-primary, #ffffff) 22%, rgba(255, 255, 255, 0.16));
+  background:
+    radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--player-accent, var(--accent)) 10%, transparent), transparent 32%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.025)),
+    #111316;
+}
+
+.curator-input {
+  min-height: 74px;
+  font-size: 0.96rem;
+  line-height: 1.6;
+}
+
+.curator-submit {
+  min-width: 74px;
+}
+
+.app-shell.theme-light .curator-panel,
+.app-shell.theme-light .classical-coverage-panel,
+.app-shell.theme-light .playlist-preview,
+.app-shell.theme-light .recommended-playlists,
+.app-shell.theme-light .chatgpt-chat-shell,
+.app-shell.theme-light .chatgpt-message-list,
+.app-shell.theme-light .chatgpt-composer .composer-shell {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.weather-cinema-panel.is-open {
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.weather-cinema-panel.is-open .weather-mini-trigger {
+  visibility: hidden;
+  opacity: 0;
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Agent stream relocation: queue management moves left, the right console becomes one continuous chat surface. */
+.curator-panel {
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
+  min-height: 0;
+  padding: 12px;
+}
+
+.chatgpt-chat-shell.is-agent-stream {
+  min-height: 0;
+  height: 100%;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  border-radius: 12px;
+  border-color: color-mix(in srgb, var(--player-primary, #ffffff) 12%, rgba(255, 255, 255, 0.09));
+  background:
+    radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--player-primary, var(--accent)) 22%, transparent), transparent 34%),
+    radial-gradient(circle at 100% 18%, color-mix(in srgb, var(--player-accent, var(--accent)) 16%, transparent), transparent 32%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.068), rgba(255, 255, 255, 0.018) 44%, rgba(255, 255, 255, 0.036)),
+    #090a0c;
+}
+
+.chatgpt-chat-shell.is-agent-stream::before {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  border: 0;
+  border-radius: 9px;
+  pointer-events: none;
+}
+
+.chatgpt-chat-shell.is-agent-stream > * {
+  position: relative;
+  z-index: 1;
+}
+
+.chatgpt-chat-shell.is-agent-stream .agent-harness-strip {
+  min-height: 64px;
+  border-radius: 9px;
+  border-color: color-mix(in srgb, var(--player-primary, #ffffff) 16%, rgba(255, 255, 255, 0.08));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--player-primary, var(--accent)) 22%, transparent), transparent 48%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.024)),
+    #121417;
+}
+
+.agent-conversation-frame {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--player-primary, #ffffff) 12%, rgba(255, 255, 255, 0.09));
+  border-radius: 10px;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--player-primary, var(--accent)) 7%, transparent), transparent 42%),
+    repeating-linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.018) 0,
+      rgba(255, 255, 255, 0.018) 1px,
+      transparent 1px,
+      transparent 36px
+    ),
+    #0b0c0f;
+}
+
+.chatgpt-chat-shell.is-agent-stream .chatgpt-message-list {
+  display: grid;
+  align-content: start;
+  gap: 0;
+  min-height: 0;
+  padding: 14px 16px;
+  overflow: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.chatgpt-chat-shell.is-agent-stream .chatgpt-message {
+  width: min(100%, 680px);
+}
+
+.chatgpt-chat-shell.is-agent-stream .chatgpt-message.is-user {
+  justify-self: end;
+}
+
+.chatgpt-chat-shell.is-agent-stream .chatgpt-message.is-user .chatgpt-message-content {
+  border-left-color: transparent;
+  border-right: 1px solid color-mix(in srgb, var(--player-accent, #ffffff) 36%, rgba(255, 255, 255, 0.12));
+  border-radius: 7px 0 0 7px;
+  background:
+    linear-gradient(270deg, color-mix(in srgb, var(--player-accent, var(--accent)) 10%, transparent), transparent 68%),
+    rgba(255, 255, 255, 0.046);
+}
+
+.agent-prompt-strip {
+  align-self: end;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--player-primary, #ffffff) 10%, rgba(255, 255, 255, 0.08));
+  border-radius: 9px;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--player-primary, var(--accent)) 9%, transparent), transparent 68%),
+    rgba(255, 255, 255, 0.028);
+}
+
+.agent-prompt-strip .recommended-playlist-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.agent-prompt-strip .recommended-playlist-card {
+  min-height: 62px;
+}
+
+.agent-conversation-frame .chatgpt-composer {
+  border-top: 1px solid color-mix(in srgb, var(--player-primary, #ffffff) 10%, rgba(255, 255, 255, 0.08));
+}
+
+.agent-conversation-frame .chatgpt-composer .composer-shell {
+  border: 0;
+  border-radius: 0;
+  background:
+    radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--player-accent, var(--accent)) 8%, transparent), transparent 32%),
+    rgba(255, 255, 255, 0.024);
+  box-shadow: none;
+}
+
+.agent-conversation-frame .curator-input {
+  min-height: 86px;
+}
+
+.queue-panel {
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  min-height: 0;
+  border-color: color-mix(in srgb, var(--player-primary, var(--accent)) 18%, var(--border-visible));
+  background:
+    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--player-primary, var(--accent)) 14%, transparent), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.048), rgba(255, 255, 255, 0.018)),
+    #0a0b0d;
+}
+
+.queue-head {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.queue-head h3 {
+  display: -webkit-box;
+  max-height: 2.45em;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.queue-rail-tabs {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(64px, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--player-primary, #ffffff) 16%, rgba(255, 255, 255, 0.11));
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.034);
+}
+
+.queue-rail-tab {
+  display: inline-grid;
+  grid-template-columns: minmax(0, auto) auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.queue-rail-tab strong {
+  color: inherit;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.66rem;
+}
+
+.queue-rail-tab.is-active {
+  color: var(--text-display);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--player-primary, var(--accent)) 22%, transparent), transparent 64%),
+    rgba(255, 255, 255, 0.078);
+}
+
+.queue-rail-tab:hover,
+.queue-rail-tab:focus-visible {
+  color: var(--text-display);
+  transform: translateY(-1px);
+}
+
+.queue-rail-tab:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+.queue-rail-body,
+.queue-current-scroll {
+  min-height: 0;
+}
+
+.queue-current-scroll {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  height: 100%;
+  overflow: hidden;
+}
+
+.queue-coverage-panel {
+  max-height: 172px;
+  overflow: hidden;
+}
+
+.queue-coverage-panel .classical-coverage-list {
+  max-height: 72px;
+}
+
+.queue-panel .playlist-preview {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.queue-panel .playlist-preview-list {
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+}
+
+.queue-restore-button {
+  width: fit-content;
+}
+
+.queue-panel .playlist-button-grid {
+  height: 100%;
+  min-height: 0;
+}
+
+.app-shell.theme-light .chatgpt-chat-shell.is-agent-stream,
+.app-shell.theme-light .agent-prompt-strip,
+.app-shell.theme-light .queue-panel {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+@media (max-width: 1380px), (max-height: 880px) {
+  .queue-coverage-panel {
+    display: none;
+  }
+
+  .queue-current-scroll {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .agent-prompt-strip .recommended-playlist-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .queue-head {
+    grid-template-columns: 1fr;
+  }
+
+  .queue-rail-tabs {
+    width: 100%;
+  }
+
+  .agent-prompt-strip .recommended-playlist-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Header weather + agent conversation refinement. */
+.titlebar {
+  border-bottom-color: color-mix(in srgb, var(--player-primary, #ffffff) 10%, rgba(255, 255, 255, 0.08));
+}
+
+.experience-grid.mode-regular {
+  column-gap: 8px;
+}
+
+.left-console-stack {
+  padding-right: 1px;
+}
+
+.right-console-stack {
+  padding-left: 1px;
+}
+
+.left-console-stack > .panel,
+.right-console-stack > .panel {
+  border-color: color-mix(in srgb, var(--player-primary, #ffffff) 10%, rgba(255, 255, 255, 0.08));
+}
+
+.left-console-stack > .panel {
+  border-right-color: color-mix(in srgb, var(--player-primary, #ffffff) 18%, rgba(255, 255, 255, 0.08));
+}
+
+.right-console-stack > .panel {
+  border-left-color: transparent;
+}
+
+.agent-harness-meter {
+  display: none;
+}
+
+.chatgpt-chat-shell.is-agent-stream .agent-harness-strip {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, auto);
+}
+
+.chatgpt-chat-shell.is-agent-stream .agent-harness-main small {
+  display: -webkit-box;
+  max-height: 2.6em;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.chatgpt-chat-shell.is-agent-stream .agent-harness-readouts {
+  grid-template-columns: repeat(4, minmax(0, auto));
+  justify-content: end;
+}
+
+.chatgpt-chat-shell.is-agent-stream .agent-harness-readouts span {
+  padding: 5px 8px;
+  border-color: color-mix(in srgb, var(--player-primary, #ffffff) 10%, rgba(255, 255, 255, 0.08));
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.app-shell.theme-light .agent-conversation-frame {
+  background: rgba(255, 255, 255, 0.58);
+}
+
+@media (max-width: 1380px) {
+  .chatgpt-chat-shell.is-agent-stream .agent-harness-strip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .chatgpt-chat-shell.is-agent-stream .agent-harness-readouts {
+    justify-content: start;
   }
 }

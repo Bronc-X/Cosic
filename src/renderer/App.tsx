@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useRef, useState } from 'react';
+import { startTransition, useEffect, useRef, useState, type CSSProperties } from 'react';
 import type {
   BootstrapPayload,
   ClassicalCoverageReport,
@@ -209,7 +209,6 @@ export default function App() {
   const [dailyBrief, setDailyBrief] = useState<DailyStationBrief | null>(null);
   const [isAnalyzingTaste, setIsAnalyzingTaste] = useState(false);
   const [classicalCoverageReport, setClassicalCoverageReport] = useState<ClassicalCoverageReport | null>(null);
-  const [isScanningClassicalCoverage, setIsScanningClassicalCoverage] = useState(false);
   const [isSwitchingLibrary, setIsSwitchingLibrary] = useState(false);
   const [isQueueOverlayOpen, setIsQueueOverlayOpen] = useState(false);
   const [queueTracks, setQueueTracks] = useState<Track[]>([]);
@@ -314,11 +313,6 @@ export default function App() {
   }
 
   async function scanClassicalCoverage() {
-    if (isScanningClassicalCoverage) {
-      return;
-    }
-
-    setIsScanningClassicalCoverage(true);
     setCurationError(null);
 
     try {
@@ -327,8 +321,6 @@ export default function App() {
     } catch (err) {
       const message = err instanceof Error ? err.message : '古典谱源扫描失败。';
       setCurationError(message);
-    } finally {
-      setIsScanningClassicalCoverage(false);
     }
   }
 
@@ -542,11 +534,14 @@ export default function App() {
     };
 
     void hydrate();
-    const unsubscribe = window.cosic.onWindowStateChange((state) => {
-      startTransition(() => {
-        setWindowState(state);
-      });
-    });
+    const unsubscribe =
+      typeof window.cosic?.onWindowStateChange === 'function'
+        ? window.cosic.onWindowStateChange((state) => {
+            startTransition(() => {
+              setWindowState(state);
+            });
+          })
+        : () => undefined;
     const handleResize = () => {
       setLayoutMode(getLayoutMode());
       setIsDensePlayer(getIsDensePlayer());
@@ -584,6 +579,7 @@ export default function App() {
     }
 
     void refreshDailyBrief();
+    void scanClassicalCoverage();
 
     setMessages((current) => {
       if (current.length !== 1 || current[0]?.id !== 'intro-assistant') {
@@ -977,6 +973,13 @@ export default function App() {
   const isTrackInsightLoading = Boolean(currentTrack && loadingTrackInsightId === currentTrack.id);
   const currentTrackLyrics = currentTrack ? trackLyrics[currentTrack.id] : undefined;
   const isLyricsLoading = Boolean(currentTrack && loadingLyricsTrackId === currentTrack.id);
+  const shellThemeStyle = currentTrack
+    ? ({
+        '--player-primary': currentTrack.theme.primary,
+        '--player-secondary': currentTrack.theme.secondary,
+        '--player-accent': currentTrack.theme.accent
+      } as CSSProperties)
+    : undefined;
 
   const leftConsoleStack = (
     <>
@@ -1010,15 +1013,27 @@ export default function App() {
         <QueueRail
           playlists={randomPlaylists.length > 0 ? randomPlaylists : bootstrap.playlists}
           activePlaylistId={bootstrap.activePlaylistId}
+          queueTitle={sessionTitle}
+          queueMeta={queueMeta}
+          tracks={activeTracks}
+          activeTrackId={currentTrack?.id ?? null}
+          isLibraryQueue={!curation}
+          curation={curation}
+          classicalCoverageReport={classicalCoverageReport}
+          isGenerating={isGeneratingCuration}
           isSwitchingLibrary={isSwitchingLibrary}
+          onSelectTrack={playTrack}
           onSelectPlaylist={switchLibrary}
+          onReplayCuration={replayCurationFromStart}
+          onRemixCuration={remixCuration}
+          onRestoreLibrary={restoreLibrary}
         />
       ) : null}
     </>
   );
 
   return (
-    <main className={`app-shell mode-${layoutMode} ${themeClassName}`}>
+    <main className={`app-shell mode-${layoutMode} ${themeClassName}`} style={shellThemeStyle}>
       <div className="cosic-chroma-field" aria-hidden="true" />
       <CursorParticleField />
       <div className="shell-grid">
@@ -1026,19 +1041,20 @@ export default function App() {
           windowState={windowState}
           isRadioUnlocked={isRadioUnlocked}
           themeMode={themeMode}
+          weatherControl={
+            !isLyricsView ? (
+              <DailyBriefPanel
+                dailyBrief={dailyBrief}
+                currentClock={currentClock}
+              />
+            ) : null
+          }
           onToggleTheme={toggleThemeMode}
           onOpenRadioMode={openRadioMode}
           onMinimize={() => void window.cosic.minimizeWindow()}
           onToggleMaximize={() => void window.cosic.toggleMaximizeWindow()}
           onClose={() => void window.cosic.closeWindow()}
         />
-
-        {!isLyricsView ? (
-          <DailyBriefPanel
-            dailyBrief={dailyBrief}
-            currentClock={currentClock}
-          />
-        ) : null}
 
         <section className={`experience-grid mode-${layoutMode}`}>
           {layoutMode === 'regular' ? (
@@ -1061,21 +1077,10 @@ export default function App() {
                   isGenerating={isGeneratingCuration}
                   error={curationError}
                   isLibraryView={!curation}
-                  activeTrackId={currentTrack?.id ?? null}
-                  playlistTitle={sessionTitle}
-                  playlistMeta={queueMeta}
-                  playlistTracks={!curation ? activeTracks : []}
-                  classicalCoverageReport={classicalCoverageReport}
-                  isScanningClassicalCoverage={isScanningClassicalCoverage}
+                  queueTrackCount={activeTracks.length}
                   layoutMode={layoutMode}
                   onAnalyzeTaste={() => void analyzeTaste()}
-                  onScanClassicalCoverage={() => void scanClassicalCoverage()}
-                  onGenerateDaily={() => void generateDailyMix(true)}
                   onSubmit={(value, userDisplayText) => void generateCuration(value, { userDisplayText })}
-                  onSelectCuratedTrack={playTrack}
-                  onReplayCuration={replayCurationFromStart}
-                  onRemixCuration={remixCuration}
-                  onRestoreLibrary={restoreLibrary}
                 />
               </div>
             </>
@@ -1091,21 +1096,10 @@ export default function App() {
                   isGenerating={isGeneratingCuration}
                   error={curationError}
                   isLibraryView={!curation}
-                  activeTrackId={currentTrack?.id ?? null}
-                  playlistTitle={sessionTitle}
-                  playlistMeta={queueMeta}
-                  playlistTracks={!curation ? activeTracks : []}
-                  classicalCoverageReport={classicalCoverageReport}
-                  isScanningClassicalCoverage={isScanningClassicalCoverage}
+                  queueTrackCount={activeTracks.length}
                   layoutMode={layoutMode}
                   onAnalyzeTaste={() => void analyzeTaste()}
-                  onScanClassicalCoverage={() => void scanClassicalCoverage()}
-                  onGenerateDaily={() => void generateDailyMix(true)}
                   onSubmit={(value, userDisplayText) => void generateCuration(value, { userDisplayText })}
-                  onSelectCuratedTrack={playTrack}
-                  onReplayCuration={replayCurationFromStart}
-                  onRemixCuration={remixCuration}
-                  onRestoreLibrary={restoreLibrary}
                 />
               </div>
             </>
