@@ -8354,12 +8354,20 @@ input:focus-visible {
   min-height: 0;
 }
 
+.queue-rail-body {
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
 .queue-current-scroll {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-auto-rows: max-content;
   gap: 10px;
+  align-content: start;
   height: 100%;
-  overflow: hidden;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding-right: 1px;
 }
 
 .queue-coverage-panel {
@@ -8372,14 +8380,15 @@ input:focus-visible {
 }
 
 .queue-panel .playlist-preview {
-  min-height: 0;
-  overflow: hidden;
+  min-height: max-content;
+  overflow: visible;
 }
 
+.queue-panel .playlist-preview.is-library .playlist-preview-list,
 .queue-panel .playlist-preview-list {
   min-height: 0;
   max-height: none;
-  overflow: auto;
+  overflow: visible;
 }
 
 .queue-restore-button {
@@ -8403,7 +8412,7 @@ input:focus-visible {
   }
 
   .queue-current-scroll {
-    grid-template-rows: minmax(0, 1fr);
+    grid-auto-rows: max-content;
   }
 
   .agent-prompt-strip .recommended-playlist-grid {

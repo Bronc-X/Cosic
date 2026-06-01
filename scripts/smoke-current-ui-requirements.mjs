@@ -179,6 +179,9 @@ assert.doesNotMatch(queueRailSource, /tracks\.slice\(0,\s*14\)/, 'library playli
 assert.match(bridgeSource, /for \(const candidateId of playlistCandidates[\s\S]*try \{[\s\S]*loadPlaylist\(\s*candidateId[\s\S]*verifyPlayable:\s*Boolean\(playlistId\)[\s\S]*catch \{[\s\S]*if \(playlistId\)/, 'random library loading must skip broken playlist candidates instead of aborting the whole search');
 assert.doesNotMatch(bridgeSource, /this\.activePlaylistId,[\s\S]*?sort\(\(left,\s*right\)\s*=>\s*right\.trackCount/, 'bootstrap must not always prefer the previous or largest playlist on entry');
 assert.match(queueRailSource, /queue-rail-tabs[\s\S]*playlist-preview-list[\s\S]*playlist-button-grid/, 'left playlist panel must switch between the current queue and random playlists');
+assert.match(cssSource, /\.queue-current-scroll\s*\{[^}]*overflow:\s*auto;/, 'current queue tab must own vertical scrolling so the whole left-bottom panel stays operable');
+assert.match(cssSource, /\.queue-panel \.playlist-preview\s*\{[^}]*overflow:\s*visible;/, 'queue playlist preview must not trap or clip the current queue scroll area');
+assert.match(cssSource, /\.queue-panel \.playlist-preview\.is-library \.playlist-preview-list,[\s\S]*?\.queue-panel \.playlist-preview-list\s*\{[^}]*overflow:\s*visible;/, 'track rows must scroll with the current queue tab instead of creating an unreachable nested scroller');
 assert.doesNotMatch(curatorSource, /playlistTracks|playlist-preview-list|curator-playlist-zone/, 'right panel must not keep the selected playlist track list');
 assert.match(curatorSource, /buildRecommendedPlaylists/, 'right recommended playlist cards must be generated from taste history instead of fixed templates');
 assert.match(curatorSource, /onClick=\{\(\) => submit\(playlist\.prompt, playlist\.title\)\}/, 'recommended cards must show a human card title in chat instead of leaking internal prompts');
